@@ -33,6 +33,7 @@ jobs:
           GOOS=linux GOARCH=amd64 go build -o dist/cafaye-linux-amd64 .
           GOOS=darwin GOARCH=arm64 go build -o dist/cafaye-darwin-arm64 .
           GOOS=darwin GOARCH=amd64 go build -o dist/cafaye-darwin-amd64 .
+          (cd dist && sha256sum cafaye-* > SHA256SUMS)
 
       - name: Cleo release plan
         run: cleo release plan --version "${GITHUB_REF_NAME}"

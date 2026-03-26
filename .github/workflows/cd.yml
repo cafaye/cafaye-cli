@@ -1,29 +1,10 @@
-name: CI
+name: CD
 
 on:
-  pull_request:
   push:
     branches: [master]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Verify formatting
-        run: |
-          test -z "$(gofmt -l .)"
-
-      - name: Run tests
-        run: make test
-
   install-uninstall-smoke:
     runs-on: ubuntu-latest
     strategy:
@@ -61,3 +42,39 @@ jobs:
           "$RUNNER_TEMP/bin/cafaye" --help >/dev/null
           INSTALL_DIR="$RUNNER_TEMP/bin" bash ./scripts/uninstall.sh
           test ! -e "$RUNNER_TEMP/bin/cafaye"
+
+  build-and-package:
+    needs: install-uninstall-smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run tests
+        run: make test
+
+      - name: Build release artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 go build -o dist/cafaye-linux-amd64 .
+          GOOS=darwin GOARCH=arm64 go build -o dist/cafaye-darwin-arm64 .
+          GOOS=darwin GOARCH=amd64 go build -o dist/cafaye-darwin-amd64 .
+          (cd dist && sha256sum cafaye-* > SHA256SUMS)
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cafaye-cli-dist
+          path: |
+            dist/cafaye-linux-amd64
+            dist/cafaye-darwin-arm64
+            dist/cafaye-darwin-amd64
+            dist/SHA256SUMS

@@ -15,8 +15,44 @@ Most CLIs assume a human at a keyboard. `cafaye-cli` is built for both humans an
 
 ## Install
 
+Install with Homebrew (recommended):
+
 ```bash
-go install github.com/cafaye/cafaye-cli@latest
+brew tap cafaye/cafaye-cli
+brew install cafaye/cafaye-cli/cafaye
+```
+
+Install directly from GitHub release binaries:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cafaye/cafaye-cli/master/scripts/install.sh | bash
+```
+
+Install a pinned version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cafaye/cafaye-cli/master/scripts/install.sh | VERSION=v0.1.0 bash
+```
+
+## Uninstall
+
+If installed with Homebrew:
+
+```bash
+brew uninstall cafaye/cafaye-cli/cafaye
+brew untap cafaye/cafaye-cli
+```
+
+If installed with the GitHub binary installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cafaye/cafaye-cli/master/scripts/uninstall.sh | bash
+```
+
+To also remove local CLI config files:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cafaye/cafaye-cli/master/scripts/uninstall.sh | PURGE_CONFIG=true bash
 ```
 
 ## Quickstart
@@ -68,6 +104,12 @@ GitHub Actions runs:
 
 - `.github/workflows/release.yml` on version tags
 - `.github/workflows/release-validate.yml` on published releases to validate installability
+- `.github/workflows/homebrew-formula.yml` on published releases to open a PR updating `Formula/cafaye.rb`
+
+Release artifacts include:
+
+- platform binaries (`cafaye-linux-amd64`, `cafaye-darwin-arm64`, `cafaye-darwin-amd64`)
+- `SHA256SUMS` for installer verification
 
 ## Security model
 

@@ -28,6 +28,7 @@ jobs:
           fi
           echo "asset=${ASSET}"
           gh release download "$TAG" --pattern "$ASSET" --dir dist
+          gh release download "$TAG" --pattern "SHA256SUMS" --dir dist
 
       - name: Validate binary runs
         run: |
@@ -43,6 +44,25 @@ jobs:
           if [[ -z "${BIN}" ]]; then
             echo "No cafaye binary found in release artifact"
             find dist -maxdepth 3 -type f -print
+            exit 1
+          fi
+          if [[ ! -f dist/SHA256SUMS ]]; then
+            echo "SHA256SUMS is missing from release artifacts"
+            find dist -maxdepth 3 -type f -print
+            exit 1
+          fi
+          BASENAME=$(basename "$BIN")
+          EXPECTED=$(awk -v file="$BASENAME" '$2 == file { print $1 }' dist/SHA256SUMS)
+          if [[ -z "${EXPECTED}" ]]; then
+            echo "No checksum found for ${BASENAME}"
+            cat dist/SHA256SUMS
+            exit 1
+          fi
+          ACTUAL=$(sha256sum "$BIN" | awk '{print $1}')
+          if [[ "${ACTUAL}" != "${EXPECTED}" ]]; then
+            echo "Checksum mismatch for ${BASENAME}"
+            echo "expected=${EXPECTED}"
+            echo "actual=${ACTUAL}"
             exit 1
           fi
           chmod +x "$BIN"

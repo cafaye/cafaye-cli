@@ -7,6 +7,7 @@ release:
     - dist/cafaye-linux-amd64
     - dist/cafaye-darwin-arm64
     - dist/cafaye-darwin-amd64
+    - dist/SHA256SUMS
   notes:
     from_changelog: false
     template: |
