@@ -1,0 +1,49 @@
+name: Release Validate
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  validate-install:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download linux amd64 asset from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          ASSET=$(gh release view "$TAG" --json assets --jq '.assets[].name' | grep -E 'linux.*amd64|amd64.*linux' | head -n1)
+          if [[ -z "${ASSET}" ]]; then
+            echo "No linux/amd64 asset found for ${TAG}"
+            gh release view "$TAG" --json assets --jq '.assets[].name'
+            exit 1
+          fi
+          echo "asset=${ASSET}"
+          gh release download "$TAG" --pattern "$ASSET" --dir dist
+
+      - name: Validate binary runs
+        run: |
+          set -euo pipefail
+          FILE=$(ls dist | head -n1)
+          if [[ "$FILE" == *.tar.gz ]]; then
+            tar -xzf "dist/$FILE" -C dist
+          fi
+          if [[ "$FILE" == *.zip ]]; then
+            unzip -o "dist/$FILE" -d dist
+          fi
+          BIN=$(find dist -type f -name 'cafaye*' | head -n1)
+          if [[ -z "${BIN}" ]]; then
+            echo "No cafaye binary found in release artifact"
+            find dist -maxdepth 3 -type f -print
+            exit 1
+          fi
+          chmod +x "$BIN"
+          "$BIN" --help | sed -n '1,80p'

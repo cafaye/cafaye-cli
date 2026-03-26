@@ -50,6 +50,20 @@ make test
 make build
 ```
 
+## Release
+
+```bash
+cleo release plan --version v0.1.0
+cleo release cut --version v0.1.0
+cleo release publish --version v0.1.0 --final --summary "..." --highlights "..."
+cleo release verify --version v0.1.0
+```
+
+GitHub Actions runs:
+
+- `.github/workflows/release.yml` on version tags
+- `.github/workflows/release-validate.yml` on published releases to validate installability
+
 ## Security model
 
 - Store tokens in OS keyring when available.

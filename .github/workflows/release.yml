@@ -22,17 +22,42 @@ jobs:
       - name: Test
         run: make test
 
-      - name: Install Cleo
-        run: npm install -g @getcleo/cli
+      - name: Ensure Cleo
+        env:
+          CLEO_INSTALL_COMMAND: ${{ secrets.CLEO_INSTALL_COMMAND }}
+        run: ./scripts/ensure-cleo.sh
 
-      - name: Build release artifacts
+      - name: Build release artifacts (validation)
         run: |
           mkdir -p dist
           GOOS=linux GOARCH=amd64 go build -o dist/cafaye-linux-amd64 .
           GOOS=darwin GOARCH=arm64 go build -o dist/cafaye-darwin-arm64 .
           GOOS=darwin GOARCH=amd64 go build -o dist/cafaye-darwin-amd64 .
 
+      - name: Cleo release plan
+        run: cleo release plan --version "${GITHUB_REF_NAME}"
+
+      - name: First-tag smoke gate
+        run: |
+          PRIOR_TAGS=$(git tag --list 'v*' | grep -vx "${GITHUB_REF_NAME}" | wc -l | tr -d ' ')
+          echo "prior_tags=${PRIOR_TAGS}"
+          if [[ "${PRIOR_TAGS}" == "0" ]]; then
+            echo "Running first-tag release smoke checks"
+            cleo release list --limit 1 || true
+            cleo release plan --version "${GITHUB_REF_NAME}"
+          else
+            echo "Not first tag; skipping first-tag smoke gate"
+          fi
+
       - name: Release with Cleo
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cleo release --config .cleo/release.yml
+        run: |
+          cleo release publish --version "${GITHUB_REF_NAME}" --final \
+            --summary "Cafaye CLI release ${GITHUB_REF_NAME}" \
+            --highlights "Agent-first non-interactive CLI workflows"
+
+      - name: Verify release with Cleo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: cleo release verify --version "${GITHUB_REF_NAME}"
