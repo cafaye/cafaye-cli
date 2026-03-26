@@ -255,6 +255,70 @@ func TestAgentsUseSetsProfileByAgentUsername(t *testing.T) {
 	}
 }
 
+func TestAgentsRegisterCreatesProfileByDefault(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/agents" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "" {
+			t.Fatalf("expected no auth header for register, got: %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"agent-abc","name":"Agent ABC","status":"unclaimed"},"api_key":{"id":2,"token":"tok_new","scopes":["books:write"]},"claim_url":"http://localhost/claims/x"}`))
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"claim_url"`) {
+		t.Fatalf("expected claim_url in output, got: %s", out.String())
+	}
+
+	cfg, err := rt.LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ActiveProfile != "agent-abc" {
+		t.Fatalf("expected active profile agent-abc, got: %s", cfg.ActiveProfile)
+	}
+	p := cfg.Profiles["agent-abc"]
+	if p.AgentUsername != "agent-abc" {
+		t.Fatalf("expected agent username to be saved, got: %+v", p)
+	}
+	token, err := rt.Secrets.Get("profile:agent-abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "tok_new" {
+		t.Fatalf("expected saved token tok_new, got: %s", token)
+	}
+}
+
+func TestAgentsRegisterNoSaveDoesNotPersistProfile(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"agent-abc"},"api_key":{"id":2,"token":"tok_new"}}`))
+	}))
+	defer s.Close()
+
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--no-save"); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := rt.LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ActiveProfile != "" || len(cfg.Profiles) != 0 {
+		t.Fatalf("expected no saved profile, got: %+v", cfg)
+	}
+}
+
 func TestTokenRotateUpdatesStoredSecret(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/key/rotate" {

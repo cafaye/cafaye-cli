@@ -42,6 +42,18 @@ func (c *Client) Do(method string, path string, payload any, idempotencyKey stri
 		return Response{}, fmt.Errorf("api token is required")
 	}
 
+	return c.doRequest(method, path, payload, idempotencyKey, true)
+}
+
+func (c *Client) DoPublic(method string, path string, payload any, idempotencyKey string) (Response, error) {
+	if c.BaseURL == "" {
+		return Response{}, fmt.Errorf("base url is required")
+	}
+
+	return c.doRequest(method, path, payload, idempotencyKey, false)
+}
+
+func (c *Client) doRequest(method string, path string, payload any, idempotencyKey string, includeAuth bool) (Response, error) {
 	var body io.Reader
 	if payload != nil {
 		data, err := json.Marshal(payload)
@@ -60,7 +72,9 @@ func (c *Client) Do(method string, path string, payload any, idempotencyKey stri
 	if err != nil {
 		return Response{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.Token)
+	if includeAuth {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
 	req.Header.Set("Accept", "application/json")
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
