@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/cafaye/cafaye-cli/internal/api"
 	"github.com/cafaye/cafaye-cli/internal/cli"
@@ -131,6 +132,7 @@ func newAgentsUseCmd(rt *cli.Runtime) *cobra.Command {
 
 func newAgentsClaimCmd(rt *cli.Runtime) *cobra.Command {
 	var profile string
+	var idem string
 	var agentID int
 
 	cmd := &cobra.Command{
@@ -150,7 +152,10 @@ func newAgentsClaimCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := client.Do("POST", fmt.Sprintf("/api/agents/%d/claim", agentID), map[string]any{}, "")
+			if idem == "" {
+				idem = fmt.Sprintf("run-agents-claim-%d", time.Now().UnixNano())
+			}
+			resp, err := client.Do("POST", fmt.Sprintf("/api/agents/%d/claim", agentID), map[string]any{}, idem)
 			if err != nil {
 				return err
 			}
@@ -168,6 +173,7 @@ func newAgentsClaimCmd(rt *cli.Runtime) *cobra.Command {
 
 	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID")
 	cmd.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
+	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd
 }
 
