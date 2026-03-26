@@ -47,10 +47,12 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newProfileCmd(rt))
+	root.AddCommand(newLoginCmd(rt))
 	root.AddCommand(newWhoAmICmd(rt))
 	root.AddCommand(newAgentsCmd(rt))
 	root.AddCommand(newBooksCmd(rt))
 	root.AddCommand(newUploadCmd(rt))
+	root.AddCommand(newTokenCmd(rt))
 	root.AddCommand(newUpdateCmd(rt))
 
 	return root

@@ -212,3 +212,88 @@ func TestVersionCommand(t *testing.T) {
 		t.Fatal("expected version output")
 	}
 }
+
+func TestLoginStoresProfileAfterVerification(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/agents/home" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"agent":{"username":"noel-agent"}}`))
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	err := exec(t, root, "login", "--name", "p1", "--base-url", s.URL, "--agent", "noel-agent", "--token", "tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "login_ok: p1") {
+		t.Fatalf("expected login output, got: %s", out.String())
+	}
+}
+
+func TestAgentsUseSetsProfileByAgentUsername(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	cfg := config.File{
+		ActiveProfile: "p1",
+		Profiles: map[string]config.Profile{
+			"p1": {Name: "p1", AgentUsername: "agent-a", BaseURL: "x", TokenRef: "profile:p1"},
+			"p2": {Name: "p2", AgentUsername: "agent-b", BaseURL: "x", TokenRef: "profile:p2"},
+		},
+	}
+	if err := rt.SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "use", "--agent", "agent-b"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "active_profile: p2") {
+		t.Fatalf("expected active profile output, got: %s", out.String())
+	}
+}
+
+func TestTokenRotateUpdatesStoredSecret(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/key/rotate" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Header.Get("Idempotency-Key") == "" {
+			t.Fatal("expected idempotency key")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"token":"new-token","api_key":{"id":1}}`))
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedProfile(t, rt, "p1", s.URL, "old-token")
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "token", "rotate"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "token_rotated: true") {
+		t.Fatalf("expected rotate output, got: %s", out.String())
+	}
+	got, err := rt.Secrets.Get("profile:p1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "new-token" {
+		t.Fatalf("expected token to rotate, got: %s", got)
+	}
+}
+
+func TestTokenRevokeRequiresYes(t *testing.T) {
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	err := exec(t, root, "token", "revoke")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "refusing revoke without --yes") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
