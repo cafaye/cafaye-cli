@@ -33,7 +33,7 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("token show failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("token show", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {
@@ -68,7 +68,7 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("token rotate failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("token rotate", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {
@@ -115,7 +115,7 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("token revoke failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("token revoke", resp.StatusCode, resp.Body)
 			}
 			_ = rt.Secrets.Delete(p.TokenRef)
 			fmt.Fprintln(cmd.OutOrStdout(), "token_revoked: true")

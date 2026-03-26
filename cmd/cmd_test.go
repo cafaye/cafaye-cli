@@ -107,6 +107,36 @@ func TestWhoamiShowsDeprecationGuidance(t *testing.T) {
 	}
 }
 
+func TestWhoamiFailureSummarizesHTMLBody(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("<!DOCTYPE html><html><body>boom</body></html>"))
+	}))
+	defer s.Close()
+
+	rt, _, _, _ := testRuntime(t)
+	seedProfile(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+
+	err := exec(t, root, "whoami")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "status=500") {
+		t.Fatalf("expected status in error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "<html error response omitted>") {
+		t.Fatalf("expected summarized html marker, got: %v", err)
+	}
+}
+
+func TestAPIErrorPrefersJSONMessage(t *testing.T) {
+	err := apiError("books list", 422, []byte(`{"error":"price_cents must be positive"}`))
+	if !strings.Contains(err.Error(), "price_cents must be positive") {
+		t.Fatalf("expected json message in error, got: %v", err)
+	}
+}
+
 func TestUpdateFallbackWhenEndpointUnavailable(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
@@ -461,7 +491,7 @@ func TestAgentsClaim(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	seedProfile(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
-	if err := exec(t, root, "agents", "claim", "--agent-id", "11"); err != nil {
+	if err := exec(t, root, "agents", "claim-link", "refresh", "--agent-id", "11"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"claim_url"`) {
@@ -655,7 +685,7 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--profile-name", "smoke"); err != nil {
 		t.Fatal(err)
 	}
-	if err := exec(t, root, "agents", "claim", "--agent-id", "11", "--idempotency-key", "run-claim-smoke"); err != nil {
+	if err := exec(t, root, "agents", "claim-link", "refresh", "--agent-id", "11", "--idempotency-key", "run-claim-smoke"); err != nil {
 		t.Fatal(err)
 	}
 	if err := exec(t, root, "books", "create", "--title", "Smoke Book", "--author", "Agent", "--idempotency-key", "run-book-create"); err != nil {

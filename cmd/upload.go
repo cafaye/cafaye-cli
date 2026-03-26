@@ -72,7 +72,7 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("upload failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("upload", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {
@@ -118,7 +118,7 @@ func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("upload show failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("upload show", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {

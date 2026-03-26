@@ -39,7 +39,7 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("books list failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("books list", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {
@@ -176,7 +176,7 @@ func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("books cover failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("books cover", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {
@@ -372,7 +372,7 @@ func runBookRead(rt *cli.Runtime, cmd *cobra.Command, profile string, path strin
 	}
 	cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("%s failed: status=%d body=%s", op, resp.StatusCode, string(resp.Body))
+		return apiError(op, resp.StatusCode, resp.Body)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(resp.Body, &payload); err != nil {
@@ -399,7 +399,7 @@ func runBookWrite(rt *cli.Runtime, cmd *cobra.Command, profile string, idem stri
 	}
 	cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("%s failed: status=%d body=%s", op, resp.StatusCode, string(resp.Body))
+		return apiError(op, resp.StatusCode, resp.Body)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(resp.Body, &payload); err != nil {

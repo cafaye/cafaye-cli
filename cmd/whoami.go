@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/cafaye/cafaye-cli/internal/cli"
 	"github.com/spf13/cobra"
@@ -30,7 +29,7 @@ func newWhoAmICmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("whoami failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("whoami", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {

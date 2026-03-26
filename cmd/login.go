@@ -31,7 +31,7 @@ func newLoginCmd(rt *cli.Runtime) *cobra.Command {
 				return err
 			}
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("login verification failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("login verification", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {

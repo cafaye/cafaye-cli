@@ -38,7 +38,7 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 				return nil
 			}
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("update check failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("update check", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {

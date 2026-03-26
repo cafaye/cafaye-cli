@@ -35,7 +35,7 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("agents list failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("agents list", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {
@@ -47,7 +47,7 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 	list.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
 	cmd.AddCommand(list)
 	cmd.AddCommand(newAgentsRegisterCmd(rt))
-	cmd.AddCommand(newAgentsClaimCmd(rt))
+	cmd.AddCommand(newAgentsClaimLinkCmd(rt))
 	cmd.AddCommand(newAgentsUseCmd(rt))
 	return cmd
 }
@@ -74,7 +74,7 @@ func newAgentsRegisterCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("agent register failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("agent register", resp.StatusCode, resp.Body)
 			}
 
 			var payload map[string]any
@@ -130,19 +130,28 @@ func newAgentsUseCmd(rt *cli.Runtime) *cobra.Command {
 	return cmd
 }
 
-func newAgentsClaimCmd(rt *cli.Runtime) *cobra.Command {
+func newAgentsClaimLinkCmd(rt *cli.Runtime) *cobra.Command {
+	link := &cobra.Command{
+		Use:   "claim-link",
+		Short: "Manage agent claim links",
+	}
+	link.AddCommand(newAgentsClaimLinkRefreshCmd(rt))
+	return link
+}
+
+func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 	var profile string
 	var idem string
 	var agentID int
 
 	cmd := &cobra.Command{
-		Use:   "claim",
-		Short: "Regenerate claim URL for an agent token",
-		Example: `  cafaye agents claim --agent-id 42
-  cafaye agents claim --agent-id 42 --profile writer-agent`,
+		Use:   "refresh",
+		Short: "Regenerate claim URL for an agent (does not claim ownership)",
+		Example: `  cafaye agents claim-link refresh --agent-id 42
+  cafaye agents claim-link refresh --agent-id 42 --profile writer-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if agentID <= 0 {
-				return fmt.Errorf("missing --agent-id\n  cafaye agents claim --agent-id <id>")
+				return fmt.Errorf("missing --agent-id\n  cafaye agents claim-link refresh --agent-id <id>")
 			}
 			cfg, err := rt.LoadConfig()
 			if err != nil {
@@ -161,7 +170,7 @@ func newAgentsClaimCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
-				return fmt.Errorf("agents claim failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+				return apiError("agents claim-link refresh", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {
