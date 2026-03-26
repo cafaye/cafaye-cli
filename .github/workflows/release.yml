@@ -23,8 +23,6 @@ jobs:
         run: make test
 
       - name: Ensure Cleo
-        env:
-          CLEO_INSTALL_COMMAND: ${{ secrets.CLEO_INSTALL_COMMAND }}
         run: ./scripts/ensure-cleo.sh
 
       - name: Build release artifacts (validation)
