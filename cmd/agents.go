@@ -46,6 +46,7 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 	list.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
 	cmd.AddCommand(list)
 	cmd.AddCommand(newAgentsRegisterCmd(rt))
+	cmd.AddCommand(newAgentsClaimCmd(rt))
 	cmd.AddCommand(newAgentsUseCmd(rt))
 	return cmd
 }
@@ -125,6 +126,48 @@ func newAgentsUseCmd(rt *cli.Runtime) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&agentUsername, "agent", "", "Agent username")
+	return cmd
+}
+
+func newAgentsClaimCmd(rt *cli.Runtime) *cobra.Command {
+	var profile string
+	var agentID int
+
+	cmd := &cobra.Command{
+		Use:   "claim",
+		Short: "Regenerate claim URL for an agent token",
+		Example: `  cafaye agents claim --agent-id 42
+  cafaye agents claim --agent-id 42 --profile writer-agent`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if agentID <= 0 {
+				return fmt.Errorf("missing --agent-id\n  cafaye agents claim --agent-id <id>")
+			}
+			cfg, err := rt.LoadConfig()
+			if err != nil {
+				return err
+			}
+			client, err := clientForProfile(rt, cfg, profile)
+			if err != nil {
+				return err
+			}
+			resp, err := client.Do("POST", fmt.Sprintf("/api/agents/%d/claim", agentID), map[string]any{}, "")
+			if err != nil {
+				return err
+			}
+			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
+			if resp.StatusCode >= 300 {
+				return fmt.Errorf("agents claim failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+			}
+			var payload map[string]any
+			if err := json.Unmarshal(resp.Body, &payload); err != nil {
+				return err
+			}
+			return printJSON(cmd.OutOrStdout(), payload)
+		},
+	}
+
+	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID")
+	cmd.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
 	return cmd
 }
 

@@ -87,6 +87,48 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.Flags().BoolVar(&publish, "publish", false, "Publish after successful upload")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show plan without making changes")
 	cmd.Flags().BoolVar(&fromStdin, "stdin", false, "Read source bundle from stdin")
+	cmd.AddCommand(newUploadShowCmd(rt))
+	return cmd
+}
+
+func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
+	var profile string
+	var uploadID int
+
+	cmd := &cobra.Command{
+		Use:   "show",
+		Short: "Show upload status/details",
+		Example: `  cafaye upload show --id 123
+  cafaye upload show --id 123 --profile noel-agent-write`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if uploadID <= 0 {
+				return fmt.Errorf("missing --id\n  cafaye upload show --id <upload-id>")
+			}
+			cfg, err := rt.LoadConfig()
+			if err != nil {
+				return err
+			}
+			client, err := clientForProfile(rt, cfg, profile)
+			if err != nil {
+				return err
+			}
+			resp, err := client.Do("GET", fmt.Sprintf("/api/uploads/%d", uploadID), nil, "")
+			if err != nil {
+				return err
+			}
+			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
+			if resp.StatusCode >= 300 {
+				return fmt.Errorf("upload show failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+			}
+			var payload map[string]any
+			if err := json.Unmarshal(resp.Body, &payload); err != nil {
+				return err
+			}
+			return printJSON(cmd.OutOrStdout(), payload)
+		},
+	}
+	cmd.Flags().IntVar(&uploadID, "id", 0, "Upload ID")
+	cmd.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
 	return cmd
 }
 

@@ -361,3 +361,109 @@ func TestTokenRevokeRequiresYes(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestUploadShow(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/uploads/7" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"upload":{"id":7,"status":"applied"}}`))
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedProfile(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "upload", "show", "--id", "7"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"status": "applied"`) {
+		t.Fatalf("expected upload payload, got: %s", out.String())
+	}
+}
+
+func TestBooksPricing(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch || r.URL.Path != "/api/books/42/pricing" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if r.Header.Get("Idempotency-Key") == "" {
+			t.Fatal("expected idempotency key")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"book":{"id":42,"pricing_type":"paid","price_cents":1200}}`))
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedProfile(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "books", "pricing", "--book-id", "42", "--pricing-type", "paid", "--price-cents", "1200"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"pricing_type": "paid"`) {
+		t.Fatalf("expected pricing payload, got: %s", out.String())
+	}
+}
+
+func TestBooksPublishAndUnpublish(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/books/42/publish":
+			if r.Method != http.MethodPost {
+				t.Fatalf("unexpected method for publish: %s", r.Method)
+			}
+			_, _ = w.Write([]byte(`{"book":{"id":42,"published":true},"published_revision_id":7}`))
+		case "/api/books/42/unpublish":
+			if r.Method != http.MethodPost {
+				t.Fatalf("unexpected method for unpublish: %s", r.Method)
+			}
+			_, _ = w.Write([]byte(`{"book":{"id":42,"published":false},"published_revision_id":null}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedProfile(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+
+	if err := exec(t, root, "books", "publish", "--book-id", "42", "--revision-id", "7"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"published": true`) {
+		t.Fatalf("expected publish payload, got: %s", out.String())
+	}
+	out.Reset()
+
+	if err := exec(t, root, "books", "unpublish", "--book-id", "42"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"published": false`) {
+		t.Fatalf("expected unpublish payload, got: %s", out.String())
+	}
+}
+
+func TestAgentsClaim(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/agents/11/claim" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"agent":{"id":11,"status":"unclaimed"},"claim_url":"http://localhost/claims/token"}`))
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedProfile(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "claim", "--agent-id", "11"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"claim_url"`) {
+		t.Fatalf("expected claim payload, got: %s", out.String())
+	}
+}
