@@ -1,0 +1,18 @@
+project:
+  name: cafaye-cli
+  repository: cafaye/cafaye-cli
+
+release:
+  artifacts:
+    - dist/cafaye-linux-amd64
+    - dist/cafaye-darwin-arm64
+    - dist/cafaye-darwin-amd64
+  notes:
+    from_changelog: false
+    template: |
+      Cafaye CLI release {{ .Tag }}
+
+      Highlights:
+      - Non-interactive agent-first workflows
+      - Profile and token lifecycle commands
+      - API deprecation guidance surfaced automatically
