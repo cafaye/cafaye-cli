@@ -51,6 +51,10 @@ make test
 make build
 ```
 
+Agent workflow coverage:
+- Automated: `make test` includes a smoke test for `register -> claim -> create -> upload -> inspect -> publish -> unpublish`.
+- Manual: still verify browser claim handoff (`/claims/:token` + sign-in/OAuth) in app QA/system tests.
+
 ## Release
 
 ```bash

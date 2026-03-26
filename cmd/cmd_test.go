@@ -591,3 +591,98 @@ func TestBooksCreateUpdateAndCover(t *testing.T) {
 		t.Fatalf("expected cover payload, got: %s", out.String())
 	}
 }
+
+func TestAgentWorkflowSmoke(t *testing.T) {
+	type state struct {
+		claimed bool
+	}
+	st := &state{}
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		auth := r.Header.Get("Authorization")
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/agents":
+			if auth != "" {
+				t.Fatalf("register should be unauthenticated, got: %q", auth)
+			}
+			_, _ = w.Write([]byte(`{"agent":{"id":11,"username":"smoke-agent","status":"unclaimed"},"api_key":{"id":3,"token":"tok_smoke","scopes":["books:write","books:publish"]},"claim_url":"http://localhost/claims/tok"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/agents/11/claim":
+			if auth != "Bearer tok_smoke" {
+				t.Fatalf("unexpected auth for claim: %q", auth)
+			}
+			if r.Header.Get("Idempotency-Key") == "" {
+				t.Fatal("claim missing idempotency key")
+			}
+			st.claimed = true
+			_, _ = w.Write([]byte(`{"agent":{"id":11,"status":"claimed"},"claim_url":"http://localhost/claims/tok2"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/books":
+			if auth != "Bearer tok_smoke" || !st.claimed {
+				t.Fatalf("create requires claimed token")
+			}
+			_, _ = w.Write([]byte(`{"book":{"id":42,"title":"Smoke Book"}}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/uploads":
+			if auth != "Bearer tok_smoke" || !st.claimed {
+				t.Fatalf("upload requires claimed token")
+			}
+			if r.Header.Get("Idempotency-Key") == "" {
+				t.Fatal("upload missing idempotency key")
+			}
+			_, _ = w.Write([]byte(`{"upload":{"id":9,"book_id":42,"status":"applied"}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/uploads/9":
+			_, _ = w.Write([]byte(`{"upload":{"id":9,"status":"applied","book_id":42}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/books/42/revisions":
+			_, _ = w.Write([]byte(`{"revisions":[{"id":7}],"current_draft_revision_id":7,"published_revision_id":null}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/books/42/publish":
+			if r.Header.Get("Idempotency-Key") == "" {
+				t.Fatal("publish missing idempotency key")
+			}
+			_, _ = w.Write([]byte(`{"book":{"id":42,"published":true},"published_revision_id":7}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/books/42/unpublish":
+			if r.Header.Get("Idempotency-Key") == "" {
+				t.Fatal("unpublish missing idempotency key")
+			}
+			_, _ = w.Write([]byte(`{"book":{"id":42,"published":false},"published_revision_id":null}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--profile-name", "smoke"); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec(t, root, "agents", "claim", "--agent-id", "11", "--idempotency-key", "run-claim-smoke"); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec(t, root, "books", "create", "--title", "Smoke Book", "--author", "Agent", "--idempotency-key", "run-book-create"); err != nil {
+		t.Fatal(err)
+	}
+
+	zipPath := filepath.Join(t.TempDir(), "bundle.zip")
+	if err := os.WriteFile(zipPath, []byte("zip-bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec(t, root, "upload", "--file", zipPath, "--idempotency-key", "run-upload-smoke"); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec(t, root, "upload", "show", "--id", "9"); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec(t, root, "books", "revisions", "--book-id", "42"); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec(t, root, "books", "publish", "--book-id", "42", "--revision-id", "7", "--idempotency-key", "run-publish-smoke"); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec(t, root, "books", "unpublish", "--book-id", "42", "--idempotency-key", "run-unpublish-smoke"); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(out.String(), `"published": true`) || !strings.Contains(out.String(), `"published": false`) {
+		t.Fatalf("expected publish and unpublish output in smoke run, got: %s", out.String())
+	}
+}
