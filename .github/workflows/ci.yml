@@ -24,12 +24,8 @@ jobs:
       - name: Run tests
         run: make test
 
-  install-uninstall-smoke:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        method: [brew, direct]
+  install-uninstall-smoke-brew:
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,7 +36,6 @@ jobs:
           go-version-file: go.mod
 
       - name: Brew install/uninstall smoke
-        if: matrix.method == 'brew'
         run: |
           set -euo pipefail
           brew tap-new cafaye/local
@@ -51,8 +46,18 @@ jobs:
           brew uninstall cafaye/local/cafaye
           brew untap cafaye/local
 
+  install-uninstall-smoke-direct:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - name: Direct install/uninstall smoke
-        if: matrix.method == 'direct'
         run: |
           set -euo pipefail
           mkdir -p dist
