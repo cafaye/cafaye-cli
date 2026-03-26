@@ -28,14 +28,64 @@ func summarizeErrorBody(body []byte) string {
 
 	var parsed map[string]any
 	if err := json.Unmarshal(body, &parsed); err == nil {
-		for _, key := range []string{"error", "message", "detail"} {
-			if s, ok := parsed[key].(string); ok && strings.TrimSpace(s) != "" {
-				return truncateErrorBody(strings.TrimSpace(s))
-			}
-		}
+		return summarizeStructuredError(parsed)
 	}
 
 	return truncateErrorBody(raw)
+}
+
+func summarizeStructuredError(parsed map[string]any) string {
+	parts := make([]string, 0, 6)
+	for _, key := range []string{"error", "message", "detail"} {
+		if s, ok := parsed[key].(string); ok && strings.TrimSpace(s) != "" {
+			parts = append(parts, strings.TrimSpace(s))
+		}
+	}
+
+	if vals, ok := parsed["validation_errors"].([]any); ok {
+		items := collectStringList(vals)
+		if len(items) > 0 {
+			parts = append(parts, "validation_errors="+strings.Join(items, "; "))
+		}
+	}
+
+	if vals, ok := parsed["next_steps"].([]any); ok {
+		items := collectStringList(vals)
+		if len(items) > 0 {
+			parts = append(parts, "next_steps="+strings.Join(items, " | "))
+		}
+	}
+
+	if links, ok := parsed["links"].(map[string]any); ok {
+		linkParts := make([]string, 0, len(links))
+		for k, v := range links {
+			s, vok := v.(string)
+			if !vok || strings.TrimSpace(s) == "" {
+				continue
+			}
+			linkParts = append(linkParts, fmt.Sprintf("%s=%s", strings.TrimSpace(k), strings.TrimSpace(s)))
+		}
+		if len(linkParts) > 0 {
+			parts = append(parts, "links="+strings.Join(linkParts, ", "))
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+	return truncateErrorBody(strings.Join(parts, " | "))
+}
+
+func collectStringList(vals []any) []string {
+	items := make([]string, 0, len(vals))
+	for _, raw := range vals {
+		s, ok := raw.(string)
+		if !ok || strings.TrimSpace(s) == "" {
+			continue
+		}
+		items = append(items, strings.TrimSpace(s))
+	}
+	return items
 }
 
 func truncateErrorBody(s string) string {
