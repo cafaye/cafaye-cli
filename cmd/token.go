@@ -13,6 +13,35 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 	var profile string
 	var yes bool
 	cmd := &cobra.Command{Use: "token", Short: "Manage current API token"}
+	show := &cobra.Command{
+		Use:   "show",
+		Short: "Show current API key metadata",
+		Example: `  cafaye token show
+  cafaye token show --profile noel-agent-write`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := rt.LoadConfig()
+			if err != nil {
+				return err
+			}
+			client, err := clientForProfile(rt, cfg, profile)
+			if err != nil {
+				return err
+			}
+			resp, err := client.Do("GET", "/api/key", nil, "")
+			if err != nil {
+				return err
+			}
+			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
+			if resp.StatusCode >= 300 {
+				return fmt.Errorf("token show failed: status=%d body=%s", resp.StatusCode, string(resp.Body))
+			}
+			var payload map[string]any
+			if err := json.Unmarshal(resp.Body, &payload); err != nil {
+				return err
+			}
+			return printJSON(cmd.OutOrStdout(), payload)
+		},
+	}
 
 	rotate := &cobra.Command{
 		Use:   "rotate",
@@ -98,7 +127,8 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 	rotate.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
 	revoke.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
 	revoke.Flags().BoolVar(&yes, "yes", false, "Confirm revocation without interactive prompt")
+	show.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
 
-	cmd.AddCommand(rotate, revoke)
+	cmd.AddCommand(show, rotate, revoke)
 	return cmd
 }

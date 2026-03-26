@@ -37,10 +37,11 @@ cafaye upload --file ./book.zip --idempotency-key run-001 --publish
 
 - `cafaye login`
 - `cafaye profile add|use|list`
-- `cafaye agents list|use`
-- `cafaye books list`
+- `cafaye agents register|claim|list|use`
+- `cafaye books create|update|cover|pricing|publish|unpublish|revisions|revision|source|revision-source|list`
 - `cafaye upload --file ... --idempotency-key ... [--publish|--dry-run|--stdin]`
-- `cafaye token rotate|revoke`
+- `cafaye upload show --id ...`
+- `cafaye token show|rotate|revoke`
 - `cafaye update --check`
 
 ## Development

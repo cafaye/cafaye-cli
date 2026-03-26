@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -465,5 +466,128 @@ func TestAgentsClaim(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"claim_url"`) {
 		t.Fatalf("expected claim payload, got: %s", out.String())
+	}
+}
+
+func TestTokenShow(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/key" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"api_key":{"id":1,"scopes":["books:write"]}}`))
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedProfile(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "token", "show"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"api_key"`) {
+		t.Fatalf("expected key payload, got: %s", out.String())
+	}
+}
+
+func TestBooksReadCommands(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/books/42/revisions":
+			_, _ = w.Write([]byte(`{"revisions":[{"id":7}]}`))
+		case "/api/books/42/revisions/7":
+			_, _ = w.Write([]byte(`{"revision":{"id":7}}`))
+		case "/api/books/42/source":
+			_, _ = w.Write([]byte(`{"source":{"upload_id":2}}`))
+		case "/api/books/42/revisions/7/source":
+			_, _ = w.Write([]byte(`{"source":{"upload_id":2}}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedProfile(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+
+	if err := exec(t, root, "books", "revisions", "--book-id", "42"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"revisions"`) {
+		t.Fatalf("expected revisions payload, got: %s", out.String())
+	}
+	out.Reset()
+
+	if err := exec(t, root, "books", "revision", "--book-id", "42", "--revision-id", "7"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"revision"`) {
+		t.Fatalf("expected revision payload, got: %s", out.String())
+	}
+	out.Reset()
+
+	if err := exec(t, root, "books", "source", "--book-id", "42"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"source"`) {
+		t.Fatalf("expected source payload, got: %s", out.String())
+	}
+	out.Reset()
+
+	if err := exec(t, root, "books", "revision-source", "--book-id", "42", "--revision-id", "7"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"source"`) {
+		t.Fatalf("expected revision source payload, got: %s", out.String())
+	}
+}
+
+func TestBooksCreateUpdateAndCover(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/books":
+			_, _ = w.Write([]byte(`{"book":{"id":42,"title":"New"}}`))
+		case r.Method == http.MethodPatch && r.URL.Path == "/api/books/42":
+			_, _ = w.Write([]byte(`{"book":{"id":42,"title":"Updated"}}`))
+		case r.Method == http.MethodPut && r.URL.Path == "/api/books/42/cover":
+			_, _ = w.Write([]byte(`{"book":{"id":42,"cover_attached":true}}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedProfile(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+
+	if err := exec(t, root, "books", "create", "--title", "New", "--author", "A"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"title": "New"`) {
+		t.Fatalf("expected create payload, got: %s", out.String())
+	}
+	out.Reset()
+
+	if err := exec(t, root, "books", "update", "--book-id", "42", "--title", "Updated"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"title": "Updated"`) {
+		t.Fatalf("expected update payload, got: %s", out.String())
+	}
+	out.Reset()
+
+	tmp := filepath.Join(t.TempDir(), "cover.webp")
+	if err := os.WriteFile(tmp, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec(t, root, "books", "cover", "--book-id", "42", "--file", tmp); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"cover_attached": true`) {
+		t.Fatalf("expected cover payload, got: %s", out.String())
 	}
 }
