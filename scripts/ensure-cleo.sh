@@ -10,6 +10,10 @@ fi
 if [[ -n "${CLEO_INSTALL_COMMAND:-}" ]]; then
   echo "cleo not found; running CLEO_INSTALL_COMMAND"
   eval "$CLEO_INSTALL_COMMAND"
+else
+  echo "cleo not found; installing via go install github.com/kaka-ruto/cleo/cmd/cleo@latest"
+  go install github.com/kaka-ruto/cleo/cmd/cleo@latest
+  export PATH="$PATH:$(go env GOPATH)/bin"
 fi
 
 if ! command -v cleo >/dev/null 2>&1; then
