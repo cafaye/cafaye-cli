@@ -36,23 +36,39 @@ func summarizeErrorBody(body []byte) string {
 
 func summarizeStructuredError(parsed map[string]any) string {
 	parts := make([]string, 0, 6)
+	seen := map[string]struct{}{}
 	for _, key := range []string{"error", "message", "detail"} {
 		if s, ok := parsed[key].(string); ok && strings.TrimSpace(s) != "" {
-			parts = append(parts, strings.TrimSpace(s))
+			val := strings.TrimSpace(s)
+			if _, exists := seen[val]; exists {
+				continue
+			}
+			seen[val] = struct{}{}
+			parts = append(parts, val)
 		}
 	}
 
 	if vals, ok := parsed["validation_errors"].([]any); ok {
 		items := collectStringList(vals)
 		if len(items) > 0 {
-			parts = append(parts, "validation_errors="+strings.Join(items, "; "))
+			deduped := uniqueStrings(items)
+			label := "validation_errors=" + strings.Join(deduped, "; ")
+			if _, exists := seen[label]; !exists {
+				seen[label] = struct{}{}
+				parts = append(parts, label)
+			}
 		}
 	}
 
 	if vals, ok := parsed["next_steps"].([]any); ok {
 		items := collectStringList(vals)
 		if len(items) > 0 {
-			parts = append(parts, "next_steps="+strings.Join(items, " | "))
+			deduped := uniqueStrings(items)
+			label := "next_steps=" + strings.Join(deduped, " | ")
+			if _, exists := seen[label]; !exists {
+				seen[label] = struct{}{}
+				parts = append(parts, label)
+			}
 		}
 	}
 
@@ -66,7 +82,11 @@ func summarizeStructuredError(parsed map[string]any) string {
 			linkParts = append(linkParts, fmt.Sprintf("%s=%s", strings.TrimSpace(k), strings.TrimSpace(s)))
 		}
 		if len(linkParts) > 0 {
-			parts = append(parts, "links="+strings.Join(linkParts, ", "))
+			label := "links=" + strings.Join(linkParts, ", ")
+			if _, exists := seen[label]; !exists {
+				seen[label] = struct{}{}
+				parts = append(parts, label)
+			}
 		}
 	}
 
@@ -86,6 +106,23 @@ func collectStringList(vals []any) []string {
 		items = append(items, strings.TrimSpace(s))
 	}
 	return items
+}
+
+func uniqueStrings(in []string) []string {
+	out := make([]string, 0, len(in))
+	seen := map[string]struct{}{}
+	for _, raw := range in {
+		val := strings.TrimSpace(raw)
+		if val == "" {
+			continue
+		}
+		if _, exists := seen[val]; exists {
+			continue
+		}
+		seen[val] = struct{}{}
+		out = append(out, val)
+	}
+	return out
 }
 
 func truncateErrorBody(s string) string {

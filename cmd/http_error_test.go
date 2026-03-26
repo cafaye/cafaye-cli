@@ -37,3 +37,21 @@ func TestSummarizeErrorBodyHtml(t *testing.T) {
 		t.Fatalf("expected html omission message, got: %s", got)
 	}
 }
+
+func TestSummarizeErrorBodyDedupesRepeatedMessages(t *testing.T) {
+	body := []byte(`{
+		"error":"validation_failed",
+		"detail":"same message",
+		"validation_errors":["same message","same message"]
+	}`)
+
+	got := summarizeErrorBody(body)
+	if strings.Count(got, "same message") != 2 {
+		// One in detail and one in labeled validation_errors is acceptable,
+		// but duplicates inside validation_errors should be collapsed.
+		t.Fatalf("expected deduped repeated values, got: %s", got)
+	}
+	if strings.Contains(got, "same message; same message") {
+		t.Fatalf("expected duplicate validation_errors to collapse, got: %s", got)
+	}
+}
