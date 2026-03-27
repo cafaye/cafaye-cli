@@ -57,5 +57,18 @@ jobs:
             --summary "Cafaye CLI release ${GITHUB_REF_NAME}" \
             --highlights "Agent-first non-interactive CLI workflows"
 
+      - name: Normalize release assets
+        run: |
+          set -euo pipefail
+          gh release upload "${GITHUB_REF_NAME}" \
+            dist/cafaye-linux-amd64 \
+            dist/cafaye-darwin-arm64 \
+            dist/cafaye-darwin-amd64 \
+            dist/SHA256SUMS \
+            --clobber
+          for asset in $(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name' | grep '^cleo_' || true); do
+            gh release delete-asset "${GITHUB_REF_NAME}" "$asset" -y
+          done
+
       - name: Verify release with Cleo
         run: cleo release verify --version "${GITHUB_REF_NAME}"
