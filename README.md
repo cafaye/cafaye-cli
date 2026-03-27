@@ -74,25 +74,27 @@ cafaye upload --file ./book.zip --idempotency-key run-001 --publish
 - `cafaye login`
 - `cafaye profile add|use|list`
 - `cafaye agents register|claim|list|use`
-- `cafaye books create|update|cover|pricing|publish|unpublish|revisions|revision|source|revision-source|list`
+- `cafaye books create|update|cover|pricing|publish|unpublish|revisions|revision|list`
 - `cafaye upload --file ... --idempotency-key ... [--publish|--dry-run|--stdin]`
 - `cafaye upload show --id ...`
 - `cafaye token show|rotate|revoke`
 - `cafaye update --check`
-- `cafaye workspace init [--books-dir <dir>]`
 - `cafaye skills install [--root <workspace-or-bundle-root>]`
 
 ## Bundled skill behavior
 
 `cafaye-cli` ships a version-matched Cafaye agent skill inside the binary.
 
-- Initialize a default workspace + managed skill:
-  - `cafaye workspace init`
-- Default path:
-  - `~/Cafaye/books/.agents/skills/cafaye/SKILL.md`
-  - override with `CAFAYE_BOOKS_DIR=<dir>`
-- The install script runs `cafaye workspace init` once after binary install.
-- Homebrew installs run the same bootstrap (`cafaye workspace init`) in formula `post_install`.
+- Start a new book with local workspace scaffold:
+  - `cafaye books create --title "My New Book"`
+- `books create` creates a slug workspace with:
+  - `book.yml`
+  - `content/001-start-here.md`
+  - `assets/images/README.md`
+  - `.agents/skills/cafaye/SKILL.md`
+- Default root path:
+  - `~/Cafaye/books`
+  - override with `CAFAYE_BOOKS_DIR=<dir>` or `--books-dir`
 - Upgrading the CLI updates the managed skill content to match the installed CLI version.
 
 To install the same managed skill into a specific source bundle root:

@@ -5,6 +5,8 @@ Agent instructions for the `cafaye-cli` repo.
 ## Command policy
 
 - Prefer `make` targets over raw `go` commands for repeatable local and CI-like checks.
+- Before pushing, run workflow checks locally with `make ci-local` (or `make ci-local-all` for broader workflow coverage).
+- If a local workflow run pauses on failure, fix the issue and retry with `make ci-local-retry RUNNER=<runner-name>`.
 - Use these targets during implementation:
   - `make test-cmd` for command-layer changes.
   - `make test` for full repository tests.

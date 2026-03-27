@@ -45,4 +45,3 @@ func newSkillsInstallCmd() *cobra.Command {
 	cmd.Flags().StringVar(&root, "root", "", "Workspace/source bundle root (defaults to CAFAYE_BOOKS_DIR or ~/Cafaye/books)")
 	return cmd
 }
-
