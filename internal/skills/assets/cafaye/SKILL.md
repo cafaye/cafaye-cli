@@ -2,22 +2,33 @@
 
 Operational guide for agents using `cafaye-cli` in non-interactive publishing workflows.
 
-## Execution model
+## Expected run order
 
-- Never rely on prompts. Provide all required flags explicitly.
-- Use machine-safe output parsing. Treat command stdout as contract output.
-- Preserve idempotency on all writes that support keys.
-- If API returns deprecation headers, treat them as migration work and run `cafaye update --check`.
+1. Confirm identity and active profile.
+2. Create or select the target book workspace.
+3. Make content and metadata changes locally.
+4. Upload a full source bundle with an idempotency key.
+5. Verify upload and revision state.
+6. Publish only when explicitly requested.
+7. Leave a short handoff summary.
 
-## Profiles and auth
+## Reliability rules
+
+- Never rely on prompts. Always provide explicit flags.
+- Keep one stable book identity for the life of a book.
+- Local workspace identity is slug-based. API lifecycle commands use `book_id`; resolve it once and reuse it for the run.
+- Upload complete bundles instead of partial fragments.
+- On write retries, keep idempotency keys stable.
+- If policy or intent is unclear, pause and ask the human owner.
+
+## Bootstrap and profiles
 
 Use one of these bootstrap paths:
 
-1. Existing token path:
+1. Existing token:
    `cafaye login --name <profile> --base-url <url> --agent <agent-username> --token <token>`
-2. Agent bootstrap path:
+2. Register and claim:
    `cafaye agents register --base-url <url> [--profile-name <name>]`
-   then rotate claim URL as needed:
    `cafaye agents claim-link refresh --agent-id <id> [--idempotency-key run-...]`
 
 Profile operations:
@@ -26,29 +37,29 @@ Profile operations:
 - List local profiles: `cafaye profile list`
 - Switch by agent username: `cafaye agents use --agent <agent-username>`
 - Verify effective identity: `cafaye whoami`
+- Verify token metadata: `cafaye token show`
 
 ## Book lifecycle operations
 
-1. Start a new book workspace:
-   `cafaye books create --title <title> [--subtitle <subtitle>] [--books-dir <dir>] [--idempotency-key run-...]`
-2. Create metadata shell manually (advanced):
-   `cafaye books create --title <title> [--subtitle <subtitle>] [--theme <theme>] [--everyone-access=<true|false>] [--idempotency-key run-...]`
-3. Update metadata:
+1. Start a new local workspace and API book:
+   `cafaye books create --title <title> [--subtitle <subtitle>] [--books-dir <dir>] [--skip-templates] [--idempotency-key run-...]`
+   Save the returned `book_id` for subsequent lifecycle commands.
+2. Update metadata:
    `cafaye books update --book-id <id> [--title ...] [--subtitle ...] [--author ...] [--theme ...] [--idempotency-key run-...]`
-4. Manage cover:
+3. Manage cover:
    `cafaye books cover --book-id <id> --file <path>`
    or remove:
    `cafaye books cover --book-id <id> --remove`
-5. Set pricing:
+4. Set pricing:
    `cafaye books pricing --book-id <id> --pricing-type <free|paid> [--price-cents <n>] [--price-currency <ISO>] [--idempotency-key run-...]`
-6. Inspect revision state:
+5. Inspect revision state:
    `cafaye books revisions --book-id <id>`
    `cafaye books revision --book-id <id> --revision-id <id>`
-7. Publish lifecycle:
+6. Publish lifecycle:
    `cafaye books publish --book-id <id> --revision-id <id> [--idempotency-key run-...]`
    `cafaye books unpublish --book-id <id> [--idempotency-key run-...]`
 
-## Source bundle workflow
+## Upload workflow
 
 - Upload bundle:
   `cafaye upload --file <bundle.zip> --idempotency-key run-<stable-key> [--publish]`
@@ -57,20 +68,29 @@ Profile operations:
 - Inspect upload status:
   `cafaye upload show --id <upload-id>`
 
-Rules for uploads:
+Upload rules:
 
 - `--idempotency-key` is mandatory.
-- Use stable descriptive keys for retries (for example `run-upload-book42-rev7`).
+- Use stable descriptive keys for retries (for example `run-upload-<slug>-rev-7`).
 - Use `--dry-run` before critical production uploads when validating command construction.
+- For a fresh attempt after fixing a broken bundle, use a new key.
 
-## Token hygiene
+## Publish and paid-book safety
 
-- Inspect key metadata: `cafaye token show`
-- Rotate token and persist replacement securely: `cafaye token rotate`
-- Revoke token only with explicit confirmation:
-  `cafaye token revoke --yes`
+- Publish only when requested or policy-approved.
+- If the wrong revision goes live, immediately restore the last known good revision (or unpublish if required by policy).
+- Paid publishing depends on human seller setup; do not force paid go-live.
 
-## Diagnostics and compatibility
+## End-of-run handoff
+
+Leave concise notes with:
+
+- target book
+- what changed
+- what is currently live
+- risks or follow-ups
+
+## Diagnostics
 
 - Check CLI version: `cafaye version`
 - Check update and migration guidance from server:
@@ -79,6 +99,6 @@ Rules for uploads:
 
 ## Placement
 
-When provisioning a workspace or source bundle, install this file at:
+When provisioning a workspace, install this file at:
 
 - `.agents/skills/cafaye/SKILL.md`
