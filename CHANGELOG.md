@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.2.9
+
+### Summary
+
+- Added `workspace init` as the primary idempotent workspace bootstrap flow.
+- Switched installer post-install setup from `skills install` to `workspace init`.
+- Added automated coverage for default/custom workspace initialization behavior.
+
+### Highlights
+
+- New command: `cafaye workspace init [--books-dir <dir>]`.
+- `workspace init` creates the books directory if missing, installs the bundled skill, and is safe to run repeatedly.
+- `skills install` remains available for manual skill-only operations.
+- Installer script now runs `cafaye workspace init` after installing the binary.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- For bootstrap/setup scripts, prefer:
+  - `cafaye workspace init`
+- Use `cafaye skills install` only when you want manual skill injection/update in an existing root.
+
+### Verification
+
+- `go test ./...`
+- manual: run `cafaye workspace init` twice and confirm second run reports idempotent state (`workspace_created: false`, `skill_updated: false`)
+- manual: run `cafaye workspace init --books-dir <custom-dir>` and verify `.agents/skills/cafaye/SKILL.md` exists under that root
+
 ## v0.2.8
 
 ### Summary

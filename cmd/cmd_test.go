@@ -235,19 +235,47 @@ func TestSkillsInstallWritesSkillToTargetRoot(t *testing.T) {
 	}
 }
 
-func TestDefaultSkillAutoInstalledOnCommandRun(t *testing.T) {
+func TestWorkspaceInitCreatesDefaultWorkspaceAndIsIdempotent(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
-	if err := exec(t, root, "version"); err != nil {
+
+	if err := exec(t, root, "workspace", "init"); err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(out.String()) == "" {
-		t.Fatal("expected version output")
+	if !strings.Contains(out.String(), "workspace_created: true") {
+		t.Fatalf("expected first init to create workspace, got: %s", out.String())
 	}
 	booksRoot := os.Getenv("CAFAYE_BOOKS_DIR")
 	skillPath := filepath.Join(booksRoot, ".agents", "skills", "cafaye", "SKILL.md")
 	if _, err := os.Stat(skillPath); err != nil {
-		t.Fatalf("expected default skill to be installed at %s: %v", skillPath, err)
+		t.Fatalf("expected default workspace skill at %s: %v", skillPath, err)
+	}
+	out.Reset()
+
+	if err := exec(t, root, "workspace", "init"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "workspace_created: false") {
+		t.Fatalf("expected idempotent workspace init, got: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "skill_updated: false") {
+		t.Fatalf("expected idempotent skill install, got: %s", out.String())
+	}
+}
+
+func TestWorkspaceInitSupportsBooksDirFlag(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	custom := filepath.Join(t.TempDir(), "custom-books")
+	if err := exec(t, root, "workspace", "init", "--books-dir", custom); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "workspace_root: "+custom) {
+		t.Fatalf("expected custom workspace root output, got: %s", out.String())
+	}
+	skillPath := filepath.Join(custom, ".agents", "skills", "cafaye", "SKILL.md")
+	if _, err := os.Stat(skillPath); err != nil {
+		t.Fatalf("expected custom workspace skill at %s: %v", skillPath, err)
 	}
 }
 

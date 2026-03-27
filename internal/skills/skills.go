@@ -35,6 +35,10 @@ func defaultBooksDir() (string, error) {
 	return filepath.Join(home, defaultBooksDirSuffix), nil
 }
 
+func DefaultBooksDir() (string, error) {
+	return defaultBooksDir()
+}
+
 func renderSkill() string {
 	header := fmt.Sprintf(
 		"<!-- managed-by: cafaye-cli | cli_version: %s -->\n\n",
@@ -74,4 +78,3 @@ func InstallForRoot(root string) (InstallResult, error) {
 	}
 	return installAtRoot(root)
 }
-
