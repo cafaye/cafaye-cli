@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.2.10
+
+### Summary
+
+- Unified install-time workspace bootstrap behavior across binary installer and Homebrew.
+
+### Highlights
+
+- Homebrew formula now runs `cafaye workspace init` in `post_install`.
+- Both install paths use the same CLI code path for workspace bootstrap.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- No migration required.
+- Existing Homebrew installs can run `cafaye workspace init` once to align with the new default behavior.
+
+### Verification
+
+- `go test ./...`
+- manual (Homebrew formula): verify post-install triggers `cafaye workspace init`
+
 ## v0.2.9
 
 ### Summary

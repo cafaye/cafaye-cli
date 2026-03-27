@@ -92,6 +92,7 @@ cafaye upload --file ./book.zip --idempotency-key run-001 --publish
   - `~/Cafaye/books/.agents/skills/cafaye/SKILL.md`
   - override with `CAFAYE_BOOKS_DIR=<dir>`
 - The install script runs `cafaye workspace init` once after binary install.
+- Homebrew installs run the same bootstrap (`cafaye workspace init`) in formula `post_install`.
 - Upgrading the CLI updates the managed skill content to match the installed CLI version.
 
 To install the same managed skill into a specific source bundle root:
@@ -105,6 +106,14 @@ cafaye skills install --root /path/to/source-bundle
 ```bash
 make test
 make build
+```
+
+Run GitHub Actions locally (pre-push):
+
+```bash
+make ci-local
+# or
+make ci-local-all
 ```
 
 Agent workflow coverage:
