@@ -7,6 +7,7 @@ import (
 	"github.com/cafaye/cafaye-cli/internal/cli"
 	"github.com/cafaye/cafaye-cli/internal/config"
 	"github.com/cafaye/cafaye-cli/internal/creds"
+	"github.com/cafaye/cafaye-cli/internal/skills"
 	"github.com/cafaye/cafaye-cli/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -38,8 +39,11 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 		SilenceUsage: true,
 	}
 	root.PersistentFlags().StringVar(&cfgPath, "config", rt.ConfigPath, "Path to CLI config file")
-	root.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
+	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		rt.ConfigPath = cfgPath
+		if _, err := skills.EnsureDefaultInstalled(); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: failed to install bundled skill: %v\n", err)
+		}
 		return nil
 	}
 	root.SetOut(rt.Out)
@@ -54,6 +58,7 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 	root.AddCommand(newUploadCmd(rt))
 	root.AddCommand(newTokenCmd(rt))
 	root.AddCommand(newUpdateCmd(rt))
+	root.AddCommand(newSkillsCmd())
 
 	return root
 }

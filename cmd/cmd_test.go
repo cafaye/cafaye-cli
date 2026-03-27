@@ -19,6 +19,7 @@ import (
 func testRuntime(t *testing.T) (*cli.Runtime, *bytes.Buffer, *bytes.Buffer, string) {
 	t.Helper()
 	tmp := t.TempDir()
+	t.Setenv("CAFAYE_BOOKS_DIR", filepath.Join(tmp, "books"))
 	cfgPath := filepath.Join(tmp, "config.json")
 	out := &bytes.Buffer{}
 	errOut := &bytes.Buffer{}
@@ -211,6 +212,42 @@ func TestRootHelpHasExamples(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "cafaye profile add") {
 		t.Fatalf("expected examples in help, got: %s", out.String())
+	}
+}
+
+func TestSkillsInstallWritesSkillToTargetRoot(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	target := filepath.Join(t.TempDir(), "bundle")
+	if err := exec(t, root, "skills", "install", "--root", target); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "skill_path:") {
+		t.Fatalf("expected skill path output, got: %s", out.String())
+	}
+	skillPath := filepath.Join(target, ".agents", "skills", "cafaye", "SKILL.md")
+	body, err := os.ReadFile(skillPath)
+	if err != nil {
+		t.Fatalf("expected skill at %s: %v", skillPath, err)
+	}
+	if !strings.Contains(string(body), "managed-by: cafaye-cli") {
+		t.Fatalf("expected managed skill header, got: %s", string(body))
+	}
+}
+
+func TestDefaultSkillAutoInstalledOnCommandRun(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "version"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out.String()) == "" {
+		t.Fatal("expected version output")
+	}
+	booksRoot := os.Getenv("CAFAYE_BOOKS_DIR")
+	skillPath := filepath.Join(booksRoot, ".agents", "skills", "cafaye", "SKILL.md")
+	if _, err := os.Stat(skillPath); err != nil {
+		t.Fatalf("expected default skill to be installed at %s: %v", skillPath, err)
 	}
 }
 
