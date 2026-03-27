@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.2.8
+
+### Summary
+
+- Added a bundled, operational Cafaye agent skill that ships with `cafaye-cli`.
+- Introduced managed skill installation into default books workspace and source bundle roots.
+- Added automated and manual coverage for install/update behavior tied to CLI version.
+
+### Highlights
+
+- New command: `cafaye skills install [--root <workspace-or-bundle-root>]`.
+- Default managed path now maintained automatically:
+  - `~/Cafaye/books/.agents/skills/cafaye/SKILL.md`
+  - overridable via `CAFAYE_BOOKS_DIR`.
+- Skill content is version-matched to installed CLI binary and replaced on CLI upgrades.
+- Installer now runs post-install skill provisioning.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- No migration required.
+- To inject skill into a downloaded source bundle root, run:
+  - `cafaye skills install --root <bundle-root>`
+
+### Verification
+
+- `go test ./...`
+- manual: run `cafaye version` with `CAFAYE_BOOKS_DIR` override and verify managed skill header includes `cli_version: 0.2.8`
+- manual: run `cafaye skills install --root <tmp-bundle>` and verify `.agents/skills/cafaye/SKILL.md`
+
 ## v0.2.7
 
 ### Summary
