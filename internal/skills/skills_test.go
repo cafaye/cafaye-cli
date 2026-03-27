@@ -65,3 +65,27 @@ func TestEnsureDefaultInstalledUsesEnvOverride(t *testing.T) {
 	}
 }
 
+func TestInstallForRootReplacesOutdatedSkill(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, skillRelativePath)
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("old-skill"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := InstallForRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Updated {
+		t.Fatal("expected outdated skill to be replaced")
+	}
+	body, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), "old-skill") {
+		t.Fatalf("expected updated content, got: %q", string(body))
+	}
+}

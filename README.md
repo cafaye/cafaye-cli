@@ -79,6 +79,23 @@ cafaye upload --file ./book.zip --idempotency-key run-001 --publish
 - `cafaye upload show --id ...`
 - `cafaye token show|rotate|revoke`
 - `cafaye update --check`
+- `cafaye skills install [--root <workspace-or-bundle-root>]`
+
+## Bundled skill behavior
+
+`cafaye-cli` ships a version-matched Cafaye agent skill inside the binary.
+
+- On CLI start, it ensures the skill exists at:
+  - `~/Cafaye/books/.agents/skills/cafaye/SKILL.md`
+  - override with `CAFAYE_BOOKS_DIR=<dir>`
+- The install script also runs `cafaye skills install` once after binary install.
+- Upgrading the CLI updates the managed skill content to match the installed CLI version.
+
+To install the same managed skill into a specific source bundle root:
+
+```bash
+cafaye skills install --root /path/to/source-bundle
+```
 
 ## Development
 
