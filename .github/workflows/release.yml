@@ -70,5 +70,12 @@ jobs:
             gh release delete-asset "${GITHUB_REF_NAME}" "$asset" -y
           done
 
-      - name: Verify release with Cleo
-        run: cleo release verify --version "${GITHUB_REF_NAME}"
+      - name: Verify release assets
+        run: |
+          set -euo pipefail
+          assets="$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name')"
+          echo "${assets}"
+          echo "${assets}" | grep -qx "cafaye-linux-amd64"
+          echo "${assets}" | grep -qx "cafaye-darwin-arm64"
+          echo "${assets}" | grep -qx "cafaye-darwin-amd64"
+          echo "${assets}" | grep -qx "SHA256SUMS"
