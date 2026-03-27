@@ -46,8 +46,15 @@ for asset in "${candidates[@]}"; do
 done
 
 if [[ -z "$downloaded" ]]; then
-  echo "error: could not download cleo from GitHub releases (${REPO}) for ${os}/${arch}" >&2
-  exit 1
+  echo "cleo release binary not found for ${os}/${arch}; falling back to go install"
+  go install github.com/kaka-ruto/cleo/cmd/cleo@latest
+  export PATH="$PATH:$(go env GOPATH)/bin"
+  if ! command -v cleo >/dev/null 2>&1; then
+    echo "error: failed to install cleo from GitHub source using go install" >&2
+    exit 1
+  fi
+  cleo version
+  exit 0
 fi
 
 install_dir="/usr/local/bin"
