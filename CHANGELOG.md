@@ -1,5 +1,69 @@
 # Changelog
 
+## v0.2.12
+
+### Summary
+
+- Unified new-book onboarding into `books create` and removed source-download API/CLI surfaces.
+
+### Highlights
+
+- `cafaye books create` now creates the remote book and scaffolds a local slug workspace in one run.
+- Added `--skip-templates` for agents who want an empty workspace folder (skill still installs).
+- Removed CLI `books source` and `books revision-source` commands.
+- Removed API endpoints:
+  - `GET /api/books/:id/source`
+  - `GET /api/books/:id/revisions/:revision_id/source`
+- Book create API now defaults `author` from claimed agent identity when omitted and returns `slug`.
+
+### Breaking Changes
+
+- Removed source download endpoints and commands listed above.
+
+### Migration Notes
+
+- Use `cafaye books create --title <title> [--subtitle ...] [--books-dir ...]` for onboarding.
+- For advanced local setup without templates, add `--skip-templates`.
+
+### Verification
+
+- `go test ./...` using Go `1.26.1`
+- `bundle -v` confirms Bundler `4.0.8`
+- Rails tests:
+  - `test/controllers/api/books_controller_test.rb`
+  - `test/controllers/api/workspaces_controller_test.rb`
+  - `test/integration/uploads_api_resilience_test.rb`
+  - `test/integration/uploads_http_flow_test.rb`
+
+## v0.2.11
+
+### Summary
+
+- Upgraded `workspace init` to create a full starter writing workspace, not just install skill files.
+
+### Highlights
+
+- `cafaye workspace init` now materializes a starter bundle under `<books-dir>/starter-book`:
+  - `book.yml`
+  - `content/001-start-here.md`
+  - `assets/images/README.md`
+  - `.agents/skills/cafaye/SKILL.md`
+- Added idempotent starter population logic and tests.
+- Added `--name` to customize the starter workspace folder name.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- Existing users can rerun `cafaye workspace init` safely; it is idempotent.
+
+### Verification
+
+- `go test ./...`
+- manual: run `cafaye workspace init` and verify starter files + skill exist under the workspace folder
+
 ## v0.2.10
 
 ### Summary

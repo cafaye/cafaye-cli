@@ -235,47 +235,66 @@ func TestSkillsInstallWritesSkillToTargetRoot(t *testing.T) {
 	}
 }
 
-func TestWorkspaceInitCreatesDefaultWorkspaceAndIsIdempotent(t *testing.T) {
+func TestBooksCreateCreatesSlugWorkspaceAndInstallsSkill(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/books" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"book":{"id":42,"slug":"my-new-book","title":"My New Book","subtitle":"Sub","author":"Noel Agent"}}`))
+	}))
+	defer s.Close()
+
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
-
-	if err := exec(t, root, "workspace", "init"); err != nil {
+	seedProfile(t, rt, "p1", s.URL, "tok")
+	custom := filepath.Join(t.TempDir(), "books")
+	if err := exec(t, root, "books", "create", "--title", "My New Book", "--subtitle", "Sub", "--books-dir", custom); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "workspace_created: true") {
-		t.Fatalf("expected first init to create workspace, got: %s", out.String())
+	if !strings.Contains(out.String(), `"workspace_path": "`+filepath.Join(custom, "my-new-book")+`"`) {
+		t.Fatalf("expected slug workspace in output, got: %s", out.String())
 	}
-	booksRoot := os.Getenv("CAFAYE_BOOKS_DIR")
-	skillPath := filepath.Join(booksRoot, ".agents", "skills", "cafaye", "SKILL.md")
+	skillPath := filepath.Join(custom, "my-new-book", ".agents", "skills", "cafaye", "SKILL.md")
 	if _, err := os.Stat(skillPath); err != nil {
-		t.Fatalf("expected default workspace skill at %s: %v", skillPath, err)
+		t.Fatalf("expected workspace skill at %s: %v", skillPath, err)
 	}
-	out.Reset()
-
-	if err := exec(t, root, "workspace", "init"); err != nil {
-		t.Fatal(err)
+	bookYML := filepath.Join(custom, "my-new-book", "book.yml")
+	body, err := os.ReadFile(bookYML)
+	if err != nil {
+		t.Fatalf("expected book.yml in slug workspace: %v", err)
 	}
-	if !strings.Contains(out.String(), "workspace_created: false") {
-		t.Fatalf("expected idempotent workspace init, got: %s", out.String())
-	}
-	if !strings.Contains(out.String(), "skill_updated: false") {
-		t.Fatalf("expected idempotent skill install, got: %s", out.String())
+	if !strings.Contains(string(body), `title: "My New Book"`) {
+		t.Fatalf("expected book.yml title to be set from API response: %s", string(body))
 	}
 }
 
-func TestWorkspaceInitSupportsBooksDirFlag(t *testing.T) {
+func TestBooksCreateSupportsSkipTemplates(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/books" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"book":{"id":43,"slug":"bare-workspace","title":"Bare Workspace","author":"Noel Agent"}}`))
+	}))
+	defer s.Close()
+
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
-	custom := filepath.Join(t.TempDir(), "custom-books")
-	if err := exec(t, root, "workspace", "init", "--books-dir", custom); err != nil {
+	seedProfile(t, rt, "p1", s.URL, "tok")
+	custom := filepath.Join(t.TempDir(), "books")
+	if err := exec(t, root, "books", "create", "--title", "Bare Workspace", "--books-dir", custom, "--skip-templates"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "workspace_root: "+custom) {
-		t.Fatalf("expected custom workspace root output, got: %s", out.String())
+	if !strings.Contains(out.String(), `"templates_skipped": true`) {
+		t.Fatalf("expected templates_skipped=true output, got: %s", out.String())
 	}
-	skillPath := filepath.Join(custom, ".agents", "skills", "cafaye", "SKILL.md")
-	if _, err := os.Stat(skillPath); err != nil {
-		t.Fatalf("expected custom workspace skill at %s: %v", skillPath, err)
+	workspacePath := filepath.Join(custom, "bare-workspace")
+	if _, err := os.Stat(filepath.Join(workspacePath, "book.yml")); !os.IsNotExist(err) {
+		t.Fatalf("expected no starter book.yml when templates are skipped")
+	}
+	if _, err := os.Stat(filepath.Join(workspacePath, ".agents", "skills", "cafaye", "SKILL.md")); err != nil {
+		t.Fatalf("expected skill to still be installed: %v", err)
 	}
 }
 
@@ -593,10 +612,6 @@ func TestBooksReadCommands(t *testing.T) {
 			_, _ = w.Write([]byte(`{"revisions":[{"id":7}]}`))
 		case "/api/books/42/revisions/7":
 			_, _ = w.Write([]byte(`{"revision":{"id":7}}`))
-		case "/api/books/42/source":
-			_, _ = w.Write([]byte(`{"source":{"upload_id":2}}`))
-		case "/api/books/42/revisions/7/source":
-			_, _ = w.Write([]byte(`{"source":{"upload_id":2}}`))
 		default:
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
@@ -623,20 +638,6 @@ func TestBooksReadCommands(t *testing.T) {
 	}
 	out.Reset()
 
-	if err := exec(t, root, "books", "source", "--book-id", "42"); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), `"source"`) {
-		t.Fatalf("expected source payload, got: %s", out.String())
-	}
-	out.Reset()
-
-	if err := exec(t, root, "books", "revision-source", "--book-id", "42", "--revision-id", "7"); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), `"source"`) {
-		t.Fatalf("expected revision source payload, got: %s", out.String())
-	}
 }
 
 func TestBooksCreateUpdateAndCover(t *testing.T) {
@@ -644,7 +645,7 @@ func TestBooksCreateUpdateAndCover(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/books":
-			_, _ = w.Write([]byte(`{"book":{"id":42,"title":"New"}}`))
+			_, _ = w.Write([]byte(`{"book":{"id":42,"slug":"new","title":"New","author":"A"}}`))
 		case r.Method == http.MethodPatch && r.URL.Path == "/api/books/42":
 			_, _ = w.Write([]byte(`{"book":{"id":42,"title":"Updated"}}`))
 		case r.Method == http.MethodPut && r.URL.Path == "/api/books/42/cover":
@@ -659,7 +660,7 @@ func TestBooksCreateUpdateAndCover(t *testing.T) {
 	seedProfile(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "books", "create", "--title", "New", "--author", "A"); err != nil {
+	if err := exec(t, root, "books", "create", "--title", "New"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"title": "New"`) {
@@ -715,7 +716,7 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 			if auth != "Bearer tok_smoke" || !st.claimed {
 				t.Fatalf("create requires claimed token")
 			}
-			_, _ = w.Write([]byte(`{"book":{"id":42,"title":"Smoke Book"}}`))
+			_, _ = w.Write([]byte(`{"book":{"id":42,"slug":"smoke-book","title":"Smoke Book","author":"Agent"}}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/uploads":
 			if auth != "Bearer tok_smoke" || !st.claimed {
 				t.Fatalf("upload requires claimed token")
@@ -753,7 +754,7 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 	if err := exec(t, root, "agents", "claim-link", "refresh", "--agent-id", "11", "--idempotency-key", "run-claim-smoke"); err != nil {
 		t.Fatal(err)
 	}
-	if err := exec(t, root, "books", "create", "--title", "Smoke Book", "--author", "Agent", "--idempotency-key", "run-book-create"); err != nil {
+	if err := exec(t, root, "books", "create", "--title", "Smoke Book", "--idempotency-key", "run-book-create"); err != nil {
 		t.Fatal(err)
 	}
 

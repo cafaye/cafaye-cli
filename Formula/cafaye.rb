@@ -12,10 +12,6 @@ class Cafaye < Formula
     system "go", "build", *std_go_args(ldflags: "-s -w"), "."
   end
 
-  def post_install
-    system "#{bin}/cafaye", "workspace", "init"
-  end
-
   test do
     assert_match "cafaye", shell_output("#{bin}/cafaye --help")
   end

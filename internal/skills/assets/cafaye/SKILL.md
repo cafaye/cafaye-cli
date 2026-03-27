@@ -29,22 +29,22 @@ Profile operations:
 
 ## Book lifecycle operations
 
-1. Create metadata shell:
-   `cafaye books create --title <title> --author <author> [--subtitle <subtitle>] [--theme <theme>] [--everyone-access=<true|false>] [--idempotency-key run-...]`
-2. Update metadata:
+1. Start a new book workspace:
+   `cafaye books create --title <title> [--subtitle <subtitle>] [--books-dir <dir>] [--idempotency-key run-...]`
+2. Create metadata shell manually (advanced):
+   `cafaye books create --title <title> [--subtitle <subtitle>] [--theme <theme>] [--everyone-access=<true|false>] [--idempotency-key run-...]`
+3. Update metadata:
    `cafaye books update --book-id <id> [--title ...] [--subtitle ...] [--author ...] [--theme ...] [--idempotency-key run-...]`
-3. Manage cover:
+4. Manage cover:
    `cafaye books cover --book-id <id> --file <path>`
    or remove:
    `cafaye books cover --book-id <id> --remove`
-4. Set pricing:
+5. Set pricing:
    `cafaye books pricing --book-id <id> --pricing-type <free|paid> [--price-cents <n>] [--price-currency <ISO>] [--idempotency-key run-...]`
-5. Inspect revision state:
+6. Inspect revision state:
    `cafaye books revisions --book-id <id>`
    `cafaye books revision --book-id <id> --revision-id <id>`
-   `cafaye books source --book-id <id>`
-   `cafaye books revision-source --book-id <id> --revision-id <id>`
-6. Publish lifecycle:
+7. Publish lifecycle:
    `cafaye books publish --book-id <id> --revision-id <id> [--idempotency-key run-...]`
    `cafaye books unpublish --book-id <id> [--idempotency-key run-...]`
 

@@ -13,6 +13,8 @@ import (
 
 	"github.com/cafaye/cafaye-cli/internal/api"
 	"github.com/cafaye/cafaye-cli/internal/cli"
+	"github.com/cafaye/cafaye-cli/internal/skills"
+	workspacepkg "github.com/cafaye/cafaye-cli/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -58,41 +60,127 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.AddCommand(newBooksUnpublishCmd(rt))
 	cmd.AddCommand(newBooksRevisionsCmd(rt))
 	cmd.AddCommand(newBooksRevisionCmd(rt))
-	cmd.AddCommand(newBooksSourceCmd(rt))
-	cmd.AddCommand(newBooksRevisionSourceCmd(rt))
 	return cmd
 }
 
 func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
-	var profile, title, subtitle, author, theme, idem string
+	var profile, title, subtitle, theme, booksDir, idem string
+	var skipTemplates bool
 	var everyoneAccess bool
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a new book record",
-		Example: `  cafaye books create --profile noel-agent-write --title "My Book" --author "Kaka"
-  cafaye books create --profile noel-agent-write --title "Draft" --author "Kaka" --everyone-access=false`,
+		Short: "Create a new book and scaffold local slug workspace",
+		Example: `  cafaye books create --title "My Book"
+  cafaye books create --title "Draft" --subtitle "Notes" --books-dir ~/Cafaye/books`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if title == "" {
-				return fmt.Errorf("missing --title\n  cafaye books create --profile <agent-profile> --title <title> --author <author>")
+			if strings.TrimSpace(title) == "" {
+				return fmt.Errorf("missing --title\n  cafaye books create --title <title> [--subtitle <subtitle>]")
 			}
-			body := map[string]any{
+			cfg, err := rt.LoadConfig()
+			if err != nil {
+				return err
+			}
+			client, err := clientForProfile(rt, cfg, profile)
+			if err != nil {
+				return err
+			}
+			if idem == "" {
+				idem = fmt.Sprintf("run-%d", time.Now().UnixNano())
+			}
+
+			resp, err := client.Do("POST", "/api/books", map[string]any{
 				"book": map[string]any{
 					"title":           title,
 					"subtitle":        subtitle,
-					"author":          author,
 					"theme":           theme,
 					"everyone_access": everyoneAccess,
 				},
+			}, idem)
+			if err != nil {
+				return err
 			}
-			return runBookWrite(rt, cmd, profile, idem, "POST", "/api/books", body, "books create")
+			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
+			if resp.StatusCode >= 300 {
+				return apiError("books create", resp.StatusCode, resp.Body)
+			}
+
+			var payload map[string]any
+			if err := json.Unmarshal(resp.Body, &payload); err != nil {
+				return err
+			}
+			book, ok := payload["book"].(map[string]any)
+			if !ok {
+				return fmt.Errorf("invalid books create response: missing book object")
+			}
+			slug, _ := book["slug"].(string)
+			bookTitle, _ := book["title"].(string)
+			bookSubtitle, _ := book["subtitle"].(string)
+			author, _ := book["author"].(string)
+			if strings.TrimSpace(slug) == "" {
+				return fmt.Errorf("invalid books create response: missing book slug")
+			}
+
+			root, err := resolveWorkspaceRoot(booksDir)
+			if err != nil {
+				return err
+			}
+			if err := os.MkdirAll(root, 0o755); err != nil {
+				return err
+			}
+			var initRes workspacepkg.InitResult
+			if skipTemplates {
+				workspacePath := filepath.Join(root, slug)
+				created := false
+				if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
+					created = true
+				}
+				if err := os.MkdirAll(workspacePath, 0o755); err != nil {
+					return err
+				}
+				initRes = workspacepkg.InitResult{
+					WorkspacePath: workspacePath,
+					Created:       created,
+					Populated:     false,
+				}
+			} else {
+				initRes, err = workspacepkg.EnsureStarterWorkspaceForBook(root, workspacepkg.BookStarter{
+					Slug:     slug,
+					Title:    bookTitle,
+					Subtitle: bookSubtitle,
+					Author:   author,
+				})
+				if err != nil {
+					return err
+				}
+			}
+			skillRes, err := skills.InstallForRoot(initRes.WorkspacePath)
+			if err != nil {
+				return err
+			}
+
+			result := map[string]any{
+				"book":              book,
+				"workspace_root":    root,
+				"workspace_path":    initRes.WorkspacePath,
+				"workspace_created": initRes.Created,
+				"templates_skipped": skipTemplates,
+				"starter_populated": initRes.Populated,
+				"skill_path":        skillRes.Path,
+				"skill_updated":     skillRes.Updated,
+				"next": map[string]any{
+					"upload": fmt.Sprintf("cd %s && zip -r bundle.zip . && cafaye upload --file ./bundle.zip --idempotency-key run-%s-001", initRes.WorkspacePath, slug),
+				},
+			}
+			return printJSON(cmd.OutOrStdout(), result)
 		},
 	}
 	cmd.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
 	cmd.Flags().StringVar(&title, "title", "", "Book title")
 	cmd.Flags().StringVar(&subtitle, "subtitle", "", "Book subtitle")
-	cmd.Flags().StringVar(&author, "author", "", "Book author")
 	cmd.Flags().StringVar(&theme, "theme", "", "Book theme")
 	cmd.Flags().BoolVar(&everyoneAccess, "everyone-access", false, "Whether everyone can access this book")
+	cmd.Flags().BoolVar(&skipTemplates, "skip-templates", false, "Create workspace folder without starter template files")
+	cmd.Flags().StringVar(&booksDir, "books-dir", "", "Workspace books directory (defaults to CAFAYE_BOOKS_DIR or ~/Cafaye/books)")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd
 }
@@ -225,45 +313,6 @@ func newBooksRevisionCmd(rt *cli.Runtime) *cobra.Command {
 				return fmt.Errorf("missing required flags\n  cafaye books revision --book-id <id> --revision-id <id>")
 			}
 			return runBookRead(rt, cmd, profile, fmt.Sprintf("/api/books/%d/revisions/%d", bookID, revisionID), "books revision")
-		},
-	}
-	cmd.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
-	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
-	cmd.Flags().IntVar(&revisionID, "revision-id", 0, "Revision ID")
-	return cmd
-}
-
-func newBooksSourceCmd(rt *cli.Runtime) *cobra.Command {
-	var profile string
-	var bookID int
-	cmd := &cobra.Command{
-		Use:     "source",
-		Short:   "Show source download metadata for current book source",
-		Example: `  cafaye books source --book-id 42`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if bookID <= 0 {
-				return fmt.Errorf("missing --book-id\n  cafaye books source --book-id <id>")
-			}
-			return runBookRead(rt, cmd, profile, fmt.Sprintf("/api/books/%d/source", bookID), "books source")
-		},
-	}
-	cmd.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
-	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
-	return cmd
-}
-
-func newBooksRevisionSourceCmd(rt *cli.Runtime) *cobra.Command {
-	var profile string
-	var bookID, revisionID int
-	cmd := &cobra.Command{
-		Use:     "revision-source",
-		Short:   "Show source download metadata for a specific revision",
-		Example: `  cafaye books revision-source --book-id 42 --revision-id 7`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if bookID <= 0 || revisionID <= 0 {
-				return fmt.Errorf("missing required flags\n  cafaye books revision-source --book-id <id> --revision-id <id>")
-			}
-			return runBookRead(rt, cmd, profile, fmt.Sprintf("/api/books/%d/revisions/%d/source", bookID, revisionID), "books revision-source")
 		},
 	}
 	cmd.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")

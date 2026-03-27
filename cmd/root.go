@@ -55,7 +55,6 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 	root.AddCommand(newTokenCmd(rt))
 	root.AddCommand(newUpdateCmd(rt))
 	root.AddCommand(newSkillsCmd())
-	root.AddCommand(newWorkspaceCmd())
 
 	return root
 }
