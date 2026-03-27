@@ -69,11 +69,11 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new book record",
-		Example: `  cafaye books create --title "My Book" --author "Kaka"
-  cafaye books create --title "Draft" --author "Kaka" --everyone-access=false`,
+		Example: `  cafaye books create --profile noel-agent-write --title "My Book" --author "Kaka"
+  cafaye books create --profile noel-agent-write --title "Draft" --author "Kaka" --everyone-access=false`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if title == "" {
-				return fmt.Errorf("missing --title\n  cafaye books create --title <title> --author <author>")
+				return fmt.Errorf("missing --title\n  cafaye books create --profile <agent-profile> --title <title> --author <author>")
 			}
 			body := map[string]any{
 				"book": map[string]any{

@@ -33,7 +33,7 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
   cafaye whoami
   cafaye agents list
   cafaye books list
-  cafaye upload --file ./bundle.zip --publish --idempotency-key run-123
+  cafaye upload --profile noel-agent-write --file ./bundle.zip --publish --idempotency-key run-123
   cafaye update --check`,
 		SilenceUsage: true,
 	}

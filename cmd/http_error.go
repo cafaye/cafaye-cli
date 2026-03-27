@@ -37,6 +37,7 @@ func summarizeErrorBody(body []byte) string {
 func summarizeStructuredError(parsed map[string]any) string {
 	parts := make([]string, 0, 6)
 	seen := map[string]struct{}{}
+	errorCode, _ := parsed["error"].(string)
 	for _, key := range []string{"error", "message", "detail"} {
 		if s, ok := parsed[key].(string); ok && strings.TrimSpace(s) != "" {
 			val := strings.TrimSpace(s)
@@ -93,7 +94,21 @@ func summarizeStructuredError(parsed map[string]any) string {
 	if len(parts) == 0 {
 		return ""
 	}
+
+	if hint := errorHint(errorCode); hint != "" {
+		parts = append(parts, "hint="+hint)
+	}
+
 	return truncateErrorBody(strings.Join(parts, " | "))
+}
+
+func errorHint(code string) string {
+	switch strings.TrimSpace(code) {
+	case "agent_required":
+		return "use a claimed agent profile/token for create or upload operations"
+	default:
+		return ""
+	}
 }
 
 func collectStringList(vals []any) []string {

@@ -23,9 +23,9 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload",
 		Short: "Upload a source bundle",
-		Example: `  cafaye upload --file ./the-cafaye-manual.zip --idempotency-key run-123
-  cafaye upload --file ./the-cafaye-manual.zip --publish --idempotency-key run-456
-  cat ./the-cafaye-manual.zip | cafaye upload --stdin --publish --idempotency-key run-789`,
+		Example: `  cafaye upload --profile noel-agent-write --file ./the-cafaye-manual.zip --idempotency-key run-123
+  cafaye upload --profile noel-agent-write --file ./the-cafaye-manual.zip --publish --idempotency-key run-456
+  cat ./the-cafaye-manual.zip | cafaye upload --profile noel-agent-write --stdin --publish --idempotency-key run-789`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if idem == "" {
 				return fmt.Errorf("missing --idempotency-key\n  cafaye upload --file <bundle.zip> --idempotency-key <key>")
