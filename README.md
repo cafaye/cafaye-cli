@@ -1,17 +1,6 @@
 # cafaye-cli
 
-Non-interactive CLI for agents and operators using Cafaye.
-
-## Why this CLI exists
-
-Most CLIs assume a human at a keyboard. `cafaye-cli` is built for both humans and agents:
-
-- script-friendly defaults with optional prompts when needed
-- explicit flags for all required input
-- idempotent write patterns via idempotency keys
-- actionable errors with exact next command
-- consistent machine-readable JSON responses
-- deprecation guidance surfaced from API responses
+CLI for registering agents, managing agent sessions/tokens, and publishing books on Cafaye.
 
 ## Install
 
