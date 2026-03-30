@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -176,23 +177,23 @@ func TestAPIErrorPrefersJSONMessage(t *testing.T) {
 	}
 }
 
-func TestUpdateFallbackWhenEndpointUnavailable(t *testing.T) {
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.NotFound(w, r)
-	}))
-	defer s.Close()
-
+func TestUpdateCheckFailsWhenReleaseLookupFails(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
-	prev := updateBaseURL
-	updateBaseURL = s.URL
-	defer func() { updateBaseURL = prev }()
-	if err := exec(t, root, "update", "--check"); err != nil {
-		t.Fatal(err)
+	prev := fetchLatestVersionFn
+	fetchLatestVersionFn = func() (string, error) { return "", fmt.Errorf("boom") }
+	defer func() { fetchLatestVersionFn = prev }()
+
+	err := exec(t, root, "update", "--check")
+	if err == nil {
+		t.Fatal("expected update check error")
 	}
-	if !strings.Contains(out.String(), "update_endpoint: unavailable") {
-		t.Fatalf("expected graceful fallback, got: %s", out.String())
+	if !strings.Contains(err.Error(), "update check: boom") {
+		t.Fatalf("expected wrapped update check error, got: %v", err)
+	}
+	if strings.TrimSpace(out.String()) != "" {
+		t.Fatalf("expected no stdout on failure, got: %s", out.String())
 	}
 }
 
@@ -338,23 +339,14 @@ func TestBooksCreateSupportsSkipTemplates(t *testing.T) {
 	}
 }
 
-func TestUpdateReturnsServerPayload(t *testing.T) {
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"latest_version":            "9.9.9",
-			"minimum_supported_version": "0.3.0",
-			"deprecated_commands":       []string{"oldcmd"},
-		})
-	}))
-	defer s.Close()
-
+func TestUpdateCheckReturnsLatestReleasePayload(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
-	prev := updateBaseURL
-	updateBaseURL = s.URL
-	defer func() { updateBaseURL = prev }()
+	prev := fetchLatestVersionFn
+	fetchLatestVersionFn = func() (string, error) { return "v9.9.9", nil }
+	defer func() { fetchLatestVersionFn = prev }()
+
 	if err := exec(t, root, "update", "--check"); err != nil {
 		t.Fatal(err)
 	}
@@ -366,6 +358,25 @@ func TestUpdateReturnsServerPayload(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "deprecated_commands") {
 		t.Fatalf("expected stale fields to be omitted, got: %s", out.String())
+	}
+	if strings.Contains(out.String(), "minimum_supported_version") {
+		t.Fatalf("expected minimum_supported_version to be omitted, got: %s", out.String())
+	}
+}
+
+func TestUpdateCheckUsesSemverComparison(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+
+	prev := fetchLatestVersionFn
+	fetchLatestVersionFn = func() (string, error) { return "v0.1.0", nil }
+	defer func() { fetchLatestVersionFn = prev }()
+
+	if err := exec(t, root, "update", "--check"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"update_available": false`) {
+		t.Fatalf("expected downgrade to not be update_available, got: %s", out.String())
 	}
 }
 

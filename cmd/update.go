@@ -3,24 +3,27 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	osExec "os/exec"
+	"strconv"
 	"strings"
 
-	"github.com/cafaye/cafaye-cli/internal/api"
 	"github.com/cafaye/cafaye-cli/internal/cli"
 	"github.com/cafaye/cafaye-cli/internal/version"
 	"github.com/spf13/cobra"
 )
 
+const latestReleaseAPIURL = "https://api.github.com/repos/cafaye/cafaye-cli/releases/latest"
+
 var (
 	detectBrewInstallFn   = detectBrewInstall
 	runBrewUpgradeFn      = runBrewUpgrade
 	runInstallerUpgradeFn = runInstallerUpgrade
-	updateBaseURL         = defaultRegisterBaseURL
+	fetchLatestVersionFn  = fetchLatestVersion
 )
 
 func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
-	var baseURL string
 	var checkOnly bool
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -28,36 +31,14 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 		Example: `  cafaye update
   cafaye update --check`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			resolvedBaseURL := updateBaseURL
-			if strings.TrimSpace(baseURL) != "" {
-				resolvedBaseURL = strings.TrimSpace(baseURL)
-			}
-			client := &api.Client{BaseURL: resolvedBaseURL}
-			resp, err := client.DoPublic("GET", "/api/cli/update?current_version="+version.Current, nil, "")
+			latestVersion, err := fetchLatestVersionFn()
 			if err != nil {
-				return err
-			}
-			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
-			if resp.StatusCode == 404 {
-				fmt.Fprintln(cmd.OutOrStdout(), "update_endpoint: unavailable")
-				fmt.Fprintf(cmd.OutOrStdout(), "current_version: %s\n", version.Current)
-				fmt.Fprintln(cmd.OutOrStdout(), "next_step: check release notes for your install channel")
-				return nil
-			}
-			if resp.StatusCode >= 300 {
-				return apiError("update check", resp.StatusCode, resp.Body)
-			}
-			var payload map[string]any
-			if err := json.Unmarshal(resp.Body, &payload); err != nil {
-				return err
+				return fmt.Errorf("update check: %w", err)
 			}
 
-			latestVersion := firstNonEmptyString(payload["latest_version"], payload["latest"])
-			minSupported := firstNonEmptyString(payload["minimum_supported_version"])
 			result := map[string]any{
-				"current_version":           version.Current,
-				"latest_version":            latestVersion,
-				"minimum_supported_version": minSupported,
+				"current_version": version.Current,
+				"latest_version":  normalizeVersion(latestVersion),
 			}
 			if checkOnly {
 				result["mode"] = "check"
@@ -100,16 +81,43 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), result)
 		},
 	}
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Cafaye base URL override (internal)")
-	_ = cmd.Flags().MarkHidden("base-url")
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Check only; do not perform update")
 	return cmd
 }
 
-func firstNonEmptyString(vals ...any) string {
-	for _, v := range vals {
-		s, ok := v.(string)
-		if ok && strings.TrimSpace(s) != "" {
+func fetchLatestVersion() (string, error) {
+	req, err := http.NewRequest(http.MethodGet, latestReleaseAPIURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "cafaye-cli/"+version.Current)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return "", fmt.Errorf("status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	var payload struct {
+		TagName string `json:"tag_name"`
+		Name    string `json:"name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return "", err
+	}
+	latestVersion := firstNonEmptyString(payload.TagName, payload.Name)
+	if latestVersion == "" {
+		return "", fmt.Errorf("missing latest version from release metadata")
+	}
+	return latestVersion, nil
+}
+
+func firstNonEmptyString(vals ...string) string {
+	for _, s := range vals {
+		if strings.TrimSpace(s) != "" {
 			return strings.TrimSpace(s)
 		}
 	}
@@ -123,10 +131,65 @@ func normalizeVersion(v string) string {
 }
 
 func isUpdateAvailable(current, latest string) bool {
-	if normalizeVersion(current) == "" || normalizeVersion(latest) == "" {
+	currentNorm := normalizeVersion(current)
+	latestNorm := normalizeVersion(latest)
+	if currentNorm == "" || latestNorm == "" {
 		return false
 	}
-	return normalizeVersion(current) != normalizeVersion(latest)
+	cmp, ok := compareVersionNumbers(currentNorm, latestNorm)
+	if !ok {
+		return false
+	}
+	return cmp < 0
+}
+
+func compareVersionNumbers(current, latest string) (int, bool) {
+	currentParts, ok := parseVersionParts(current)
+	if !ok {
+		return 0, false
+	}
+	latestParts, ok := parseVersionParts(latest)
+	if !ok {
+		return 0, false
+	}
+	maxLen := len(currentParts)
+	if len(latestParts) > maxLen {
+		maxLen = len(latestParts)
+	}
+	for i := range maxLen {
+		currentValue := 0
+		latestValue := 0
+		if i < len(currentParts) {
+			currentValue = currentParts[i]
+		}
+		if i < len(latestParts) {
+			latestValue = latestParts[i]
+		}
+		if currentValue < latestValue {
+			return -1, true
+		}
+		if currentValue > latestValue {
+			return 1, true
+		}
+	}
+	return 0, true
+}
+
+func parseVersionParts(versionValue string) ([]int, bool) {
+	parts := strings.Split(versionValue, ".")
+	parsed := make([]int, 0, len(parts))
+	for _, part := range parts {
+		segment := strings.TrimSpace(part)
+		if segment == "" {
+			return nil, false
+		}
+		num, err := strconv.Atoi(segment)
+		if err != nil {
+			return nil, false
+		}
+		parsed = append(parsed, num)
+	}
+	return parsed, true
 }
 
 func detectBrewInstall() bool {
