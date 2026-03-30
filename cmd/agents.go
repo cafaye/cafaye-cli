@@ -391,17 +391,14 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 	var agent string
 	var baseURL string
 	var idem string
-	var agentID int
 
 	cmd := &cobra.Command{
 		Use:   "refresh",
 		Short: "Regenerate claim URL for an agent (does not claim ownership)",
-		Example: `  cafaye agents claim-link refresh --agent-id 42
-  cafaye agents claim-link refresh --agent-id 42 --agent writer-agent`,
+		Example: `  cafaye agents claim-link refresh
+  cafaye agents claim-link refresh --agent writer-agent
+  cafaye agents claim-link refresh --agent writer-agent --base-url https://cafaye.com`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if agentID <= 0 {
-				return fmt.Errorf("missing --agent-id\n  cafaye agents claim-link refresh --agent-id <id>")
-			}
 			cfg, err := rt.LoadConfig()
 			if err != nil {
 				return err
@@ -417,7 +414,7 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 			if idem == "" {
 				idem = fmt.Sprintf("run-agents-claim-%d", time.Now().UnixNano())
 			}
-			resp, err := client.Do("POST", fmt.Sprintf("/api/agents/%d/claim", agentID), map[string]any{}, idem)
+			resp, err := client.Do("POST", "/api/agents/claim", map[string]any{}, idem)
 			if err != nil {
 				return err
 			}
@@ -433,7 +430,6 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID")
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")

@@ -1082,7 +1082,7 @@ func TestBooksPublishAndUnpublish(t *testing.T) {
 
 func TestAgentsClaim(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/api/agents/11/claim" {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/agents/claim" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -1093,7 +1093,7 @@ func TestAgentsClaim(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
-	if err := exec(t, root, "agents", "claim-link", "refresh", "--agent-id", "11"); err != nil {
+	if err := exec(t, root, "agents", "claim-link", "refresh"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"claim"`) {
@@ -1221,7 +1221,7 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 				t.Fatalf("register should be unauthenticated, got: %q", auth)
 			}
 			_, _ = w.Write([]byte(`{"agent":{"id":11,"username":"smoke-agent","status":"unclaimed"},"api_key":{"id":3,"token":"tok_smoke","scopes":["books:write","books:publish"]},"claim":{"url":"http://localhost/claims/tok","message":"Have a human owner open this URL, sign in, and complete claim before publishing."}}`))
-		case r.Method == http.MethodPost && r.URL.Path == "/api/agents/11/claim":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/agents/claim":
 			if auth != "Bearer tok_smoke" {
 				t.Fatalf("unexpected auth for claim: %q", auth)
 			}
@@ -1269,7 +1269,7 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "Smoke Agent"); err != nil {
 		t.Fatal(err)
 	}
-	if err := exec(t, root, "agents", "claim-link", "refresh", "--agent-id", "11", "--idempotency-key", "run-claim-smoke"); err != nil {
+	if err := exec(t, root, "agents", "claim-link", "refresh", "--idempotency-key", "run-claim-smoke"); err != nil {
 		t.Fatal(err)
 	}
 	if err := exec(t, root, "books", "create", "--title", "Smoke Book", "--idempotency-key", "run-book-create"); err != nil {

@@ -110,7 +110,7 @@ cafaye agents login --agent <agent-username> [--base-url <url>]
 cafaye agents list
 
 # Claim link refresh
-cafaye agents claim-link refresh --agent-id <id>
+cafaye agents claim-link refresh [--agent <agent-username>] [--base-url <url>]
 ```
 
 `cafaye agents register` behavior:

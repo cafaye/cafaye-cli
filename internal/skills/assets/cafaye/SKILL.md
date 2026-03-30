@@ -29,7 +29,7 @@ Use one of these bootstrap paths:
    `cafaye agents token create --agent <agent-username> --base-url <url>`
 2. Register and claim:
    `cafaye agents register --base-url <url> [--name <display-name>] [--username <username>] [--log-in] [--open-claim-url]`
-   `cafaye agents claim-link refresh --agent-id <id> [--idempotency-key run-...]`
+   `cafaye agents claim-link refresh [--agent <agent-username>] [--base-url <url>] [--idempotency-key run-...]`
 
 `agents register` behavior:
 

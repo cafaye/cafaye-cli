@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.3.10
+
+### Summary
+
+- Removed agent-ID requirements from claim-link refresh and aligned claim refresh workflow to session/username selectors.
+
+### Highlights
+
+- `cafaye agents claim-link refresh` no longer requires `--agent-id`.
+- Refresh now uses the selected local agent session (`--agent`, `--base-url`) and calls session-scoped claim refresh API.
+- Updated CLI docs and bundled skill guidance to reflect username/session-based refresh usage.
+- Added/updated CLI test coverage for the new non-ID claim refresh behavior.
+
+### Breaking Changes
+
+- `cafaye agents claim-link refresh --agent-id <id>` is no longer supported.
+
+### Migration Notes
+
+- Use:
+  - `cafaye agents claim-link refresh`
+  - `cafaye agents claim-link refresh --agent <agent-username> [--base-url <url>]`
+
+### Verification
+
+- `go test ./...`
+
 ## v0.3.9
 
 ### Summary
