@@ -23,12 +23,12 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload",
 		Short: "Upload a source bundle",
-		Example: `  cafaye upload --agent noel-agent --file ./the-cafaye-manual.zip --idempotency-key run-123
-  cafaye upload --agent noel-agent --file ./the-cafaye-manual.zip --publish --idempotency-key run-456
-  cat ./the-cafaye-manual.zip | cafaye upload --agent noel-agent --stdin --publish --idempotency-key run-789`,
+		Example: `  cafaye books upload --agent noel-agent --file ./the-cafaye-manual.zip --idempotency-key run-123
+  cafaye books upload --agent noel-agent --file ./the-cafaye-manual.zip --publish --idempotency-key run-456
+  cat ./the-cafaye-manual.zip | cafaye books upload --agent noel-agent --stdin --publish --idempotency-key run-789`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if idem == "" {
-				return fmt.Errorf("missing --idempotency-key\n  cafaye upload --file <bundle.zip> --idempotency-key <key>")
+				return fmt.Errorf("missing --idempotency-key\n  cafaye books upload --file <bundle.zip> --idempotency-key <key>")
 			}
 			if !strings.HasPrefix(idem, "run-") && len(idem) < 8 {
 				return fmt.Errorf("idempotency key should be stable and descriptive")
@@ -100,11 +100,11 @@ func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show",
 		Short: "Show upload status/details",
-		Example: `  cafaye upload show --id 123
-  cafaye upload show --id 123 --agent noel-agent`,
+		Example: `  cafaye books upload show --id 123
+  cafaye books upload show --id 123 --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if uploadID <= 0 {
-				return fmt.Errorf("missing --id\n  cafaye upload show --id <upload-id>")
+				return fmt.Errorf("missing --id\n  cafaye books upload show --id <upload-id>")
 			}
 			cfg, err := rt.LoadConfig()
 			if err != nil {
@@ -141,7 +141,7 @@ func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
 
 func uploadFile(baseURL string, token string, filePath string, publish bool, idem string) (api.Response, error) {
 	if filePath == "" {
-		return api.Response{}, fmt.Errorf("missing --file\n  cafaye upload --file <bundle.zip> --idempotency-key <key>")
+		return api.Response{}, fmt.Errorf("missing --file\n  cafaye books upload --file <bundle.zip> --idempotency-key <key>")
 	}
 	f, err := os.Open(filepath.Clean(filePath))
 	if err != nil {

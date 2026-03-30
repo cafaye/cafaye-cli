@@ -66,6 +66,7 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.AddCommand(newBooksUnpublishCmd(rt))
 	cmd.AddCommand(newBooksRevisionsCmd(rt))
 	cmd.AddCommand(newBooksRevisionCmd(rt))
+	cmd.AddCommand(newUploadCmd(rt))
 	return cmd
 }
 
@@ -178,7 +179,7 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 				"skill_path":        skillRes.Path,
 				"skill_updated":     skillRes.Updated,
 				"next": map[string]any{
-					"upload": fmt.Sprintf("cd %s && zip -r bundle.zip . && cafaye upload --file ./bundle.zip --idempotency-key run-%s-001", initRes.WorkspacePath, slug),
+					"upload": fmt.Sprintf("cd %s && zip -r bundle.zip . && cafaye books upload --file ./bundle.zip --idempotency-key run-%s-001", initRes.WorkspacePath, slug),
 				},
 			}
 			return printJSON(cmd.OutOrStdout(), result)

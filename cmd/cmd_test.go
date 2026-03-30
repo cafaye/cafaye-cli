@@ -174,7 +174,7 @@ func TestUploadDryRun(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "upload", "--file", "bundle.zip", "--idempotency-key", "run-12345", "--dry-run"); err != nil {
+	if err := exec(t, root, "books", "upload", "--file", "bundle.zip", "--idempotency-key", "run-12345", "--dry-run"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "dry_run: true") {
@@ -186,7 +186,7 @@ func TestUploadRequiresIdempotencyKey(t *testing.T) {
 	rt, _, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
-	err := exec(t, root, "upload", "--file", "bundle.zip")
+	err := exec(t, root, "books", "upload", "--file", "bundle.zip")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -210,7 +210,7 @@ func TestUploadSupportsStdin(t *testing.T) {
 	root := NewRootCmdWithRuntime(rt)
 	root.SetIn(strings.NewReader("zipbytes"))
 
-	if err := exec(t, root, "upload", "--stdin", "--idempotency-key", "run-12345"); err != nil {
+	if err := exec(t, root, "books", "upload", "--stdin", "--idempotency-key", "run-12345"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "upload") {
@@ -851,7 +851,7 @@ func TestUploadShow(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
-	if err := exec(t, root, "upload", "show", "--id", "7"); err != nil {
+	if err := exec(t, root, "books", "upload", "show", "--id", "7"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"status": "applied"`) {
@@ -1123,10 +1123,10 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 	if err := os.WriteFile(zipPath, []byte("zip-bytes"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := exec(t, root, "upload", "--file", zipPath, "--idempotency-key", "run-upload-smoke"); err != nil {
+	if err := exec(t, root, "books", "upload", "--file", zipPath, "--idempotency-key", "run-upload-smoke"); err != nil {
 		t.Fatal(err)
 	}
-	if err := exec(t, root, "upload", "show", "--id", "9"); err != nil {
+	if err := exec(t, root, "books", "upload", "show", "--id", "9"); err != nil {
 		t.Fatal(err)
 	}
 	if err := exec(t, root, "books", "revisions", "--book-id", "42"); err != nil {

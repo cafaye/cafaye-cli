@@ -74,11 +74,11 @@ Agent session operations:
 ## Upload workflow
 
 - Upload bundle:
-  `cafaye upload --file <bundle.zip> --idempotency-key run-<stable-key> [--publish]`
+  `cafaye books upload --file <bundle.zip> --idempotency-key run-<stable-key> [--publish]`
 - Stream bundle from stdin:
-  `cat <bundle.zip> | cafaye upload --stdin --idempotency-key run-<stable-key> [--publish]`
+  `cat <bundle.zip> | cafaye books upload --stdin --idempotency-key run-<stable-key> [--publish]`
 - Inspect upload status:
-  `cafaye upload show --id <upload-id>`
+  `cafaye books upload show --id <upload-id>`
 
 Upload rules:
 
