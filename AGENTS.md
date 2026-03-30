@@ -24,6 +24,7 @@ Agent instructions for the `cafaye-cli` repo.
 ## Release policy
 
 - Do not auto-release on every `master` push.
+- Always add/update `CHANGELOG.md` for the exact release version **before** running `cleo release cut`.
 - Only release after:
   - `internal/version/version.go` has been bumped
   - `CHANGELOG.md` has a matching entry
