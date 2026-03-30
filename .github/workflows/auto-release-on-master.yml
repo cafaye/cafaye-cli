@@ -1,0 +1,106 @@
+name: Auto Release On Master
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  cut-release:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Compute next patch version
+        id: version
+        run: |
+          set -euo pipefail
+          latest="$(git tag --list 'v*' --sort=-v:refname | head -n1)"
+          if [[ -z "${latest}" ]]; then
+            next="v0.1.0"
+          else
+            raw="${latest#v}"
+            major="${raw%%.*}"
+            rest="${raw#*.}"
+            minor="${rest%%.*}"
+            patch="${rest##*.}"
+            next="v${major}.${minor}.$((patch+1))"
+          fi
+          echo "next=${next}" >> "${GITHUB_OUTPUT}"
+
+      - name: Update CLI version constant
+        run: |
+          set -euo pipefail
+          next="${{ steps.version.outputs.next }}"
+          bare="${next#v}"
+          sed -i "s/const Current = \".*\"/const Current = \"${bare}\"/" internal/version/version.go
+
+      - name: Prepend changelog entry
+        run: |
+          set -euo pipefail
+          next="${{ steps.version.outputs.next }}"
+          today="$(date -u +%Y-%m-%d)"
+          entry_file="$(mktemp)"
+          cat > "${entry_file}" <<EOF
+## ${next}
+
+### Summary
+
+- Automated release generated from latest master commit.
+
+### Highlights
+
+- Triggered automatically by push to \`master\`.
+- Includes latest merged CLI changes from commit \`${GITHUB_SHA}\`.
+
+### Breaking Changes
+
+- None noted in automated release.
+
+### Migration Notes
+
+- No manual migration required.
+
+### Verification
+
+- \`go test ./...\`
+- Released on ${today} (UTC)
+
+EOF
+          awk -v entry_file="${entry_file}" '
+            NR==1 { print; print ""; while ((getline line < entry_file) > 0) print line; next }
+            { print }
+          ' CHANGELOG.md > CHANGELOG.md.new
+          mv CHANGELOG.md.new CHANGELOG.md
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Commit release prep
+        run: |
+          set -euo pipefail
+          next="${{ steps.version.outputs.next }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add internal/version/version.go CHANGELOG.md
+          git commit -m "chore(release): prepare ${next} [skip ci]"
+          git push origin master
+
+      - name: Create and push tag
+        run: |
+          set -euo pipefail
+          next="${{ steps.version.outputs.next }}"
+          git tag "${next}"
+          git push origin "${next}"

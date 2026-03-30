@@ -79,3 +79,28 @@ jobs:
           echo "${assets}" | grep -qx "cafaye-darwin-arm64"
           echo "${assets}" | grep -qx "cafaye-darwin-amd64"
           echo "${assets}" | grep -qx "SHA256SUMS"
+
+      - name: Update Homebrew tap formula
+        if: ${{ secrets.HOMEBREW_TAP_PUSH_TOKEN != '' }}
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_PUSH_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          REPO="cafaye/cafaye-cli"
+          TAP_REPO="cafaye/homebrew-cafaye-cli"
+          URL="https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz"
+          SHA="$(curl -fsSL "${URL}" | sha256sum | awk '{print $1}')"
+
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPO}.git" tap
+          cd tap
+          perl -0777 -i -pe "s#url \\\"https://github.com/${REPO}/archive/refs/tags/[^\\\"]+\\.tar\\.gz\\\"#url \\\"https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz\\\"#g; s#sha256 \\\"[0-9a-f]{64}\\\"#sha256 \\\"${SHA}\\\"#g" Formula/cafaye.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/cafaye.rb
+          if git diff --cached --quiet; then
+            echo "No formula changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(formula): bump cafaye to ${TAG}"
+          git push origin master

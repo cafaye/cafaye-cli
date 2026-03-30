@@ -215,6 +215,13 @@ cleo release publish --version v0.3.0 --final --summary "..." --highlights "..."
 cleo release verify --version v0.3.0
 ```
 
+Automated release on `master`:
+
+- Every push to `master` auto-bumps patch version, updates changelog, creates a tag, and publishes a GitHub release.
+- Release workflow then updates Homebrew tap formula automatically.
+- Required repo secret for tap updates:
+  - `HOMEBREW_TAP_PUSH_TOKEN` (token with push access to `cafaye/homebrew-cafaye-cli`)
+
 Homebrew formula ownership:
 
 - Tap repo: `cafaye/homebrew-cafaye-cli`
