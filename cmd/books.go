@@ -21,7 +21,13 @@ import (
 func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 	var agent string
 	var baseURL string
-	cmd := &cobra.Command{Use: "books", Short: "Book resources"}
+	cmd := &cobra.Command{Use: "books", Short: "Create, update, upload, and publish books"}
+	cmd.AddGroup(
+		&cobra.Group{ID: "read", Title: "Read Commands"},
+		&cobra.Group{ID: "write", Title: "Write Commands"},
+		&cobra.Group{ID: "publish", Title: "Publish Commands"},
+		&cobra.Group{ID: "upload", Title: "Upload Commands"},
+	)
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List books visible to current agent session",
@@ -55,18 +61,37 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
+	list.GroupID = "read"
 	list.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	list.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.AddCommand(list)
-	cmd.AddCommand(newBooksCreateCmd(rt))
-	cmd.AddCommand(newBooksUpdateCmd(rt))
-	cmd.AddCommand(newBooksCoverCmd(rt))
-	cmd.AddCommand(newBooksPricingCmd(rt))
-	cmd.AddCommand(newBooksPublishCmd(rt))
-	cmd.AddCommand(newBooksUnpublishCmd(rt))
-	cmd.AddCommand(newBooksRevisionsCmd(rt))
-	cmd.AddCommand(newBooksRevisionCmd(rt))
-	cmd.AddCommand(newUploadCmd(rt))
+	create := newBooksCreateCmd(rt)
+	create.GroupID = "write"
+	update := newBooksUpdateCmd(rt)
+	update.GroupID = "write"
+	cover := newBooksCoverCmd(rt)
+	cover.GroupID = "write"
+	pricing := newBooksPricingCmd(rt)
+	pricing.GroupID = "publish"
+	publish := newBooksPublishCmd(rt)
+	publish.GroupID = "publish"
+	unpublish := newBooksUnpublishCmd(rt)
+	unpublish.GroupID = "publish"
+	revisions := newBooksRevisionsCmd(rt)
+	revisions.GroupID = "read"
+	revision := newBooksRevisionCmd(rt)
+	revision.GroupID = "read"
+	upload := newUploadCmd(rt)
+	upload.GroupID = "upload"
+	cmd.AddCommand(create)
+	cmd.AddCommand(update)
+	cmd.AddCommand(cover)
+	cmd.AddCommand(pricing)
+	cmd.AddCommand(publish)
+	cmd.AddCommand(unpublish)
+	cmd.AddCommand(revisions)
+	cmd.AddCommand(revision)
+	cmd.AddCommand(upload)
 	return cmd
 }
 

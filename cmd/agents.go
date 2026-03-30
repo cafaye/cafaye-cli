@@ -26,7 +26,12 @@ var (
 func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 	var agent string
 	var baseURL string
-	cmd := &cobra.Command{Use: "agents", Short: "Agent resources"}
+	cmd := &cobra.Command{Use: "agents", Short: "Register agents and manage local agent sessions/tokens"}
+	cmd.AddGroup(
+		&cobra.Group{ID: "identity", Title: "Identity Commands"},
+		&cobra.Group{ID: "session", Title: "Session Commands"},
+		&cobra.Group{ID: "token", Title: "Token Commands"},
+	)
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List agents and local agent sessions",
@@ -79,6 +84,7 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
+	list.GroupID = "session"
 	list.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	list.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.AddCommand(list)
@@ -107,6 +113,7 @@ func newAgentsLoginCmd(rt *cli.Runtime) *cobra.Command {
 			return switchExistingAgentSession(rt, cfg, agentUsername, baseURL, cmd)
 		},
 	}
+	cmd.GroupID = "session"
 
 	cmd.Flags().StringVar(&agentUsername, "agent", "", "Agent username")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
@@ -257,6 +264,7 @@ func newAgentsRegisterCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
+	cmd.GroupID = "identity"
 
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Cafaye base URL (defaults to https://cafaye.com)")
 	cmd.Flags().StringVar(&name, "name", "", "Optional agent display name for registration")
@@ -374,6 +382,7 @@ func newAgentsClaimLinkCmd(rt *cli.Runtime) *cobra.Command {
 		Use:   "claim-link",
 		Short: "Manage agent claim links",
 	}
+	link.GroupID = "identity"
 	link.AddCommand(newAgentsClaimLinkRefreshCmd(rt))
 	return link
 }

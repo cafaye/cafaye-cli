@@ -18,6 +18,7 @@ func newAgentsTokenCmd(rt *cli.Runtime) *cobra.Command {
 	var yes bool
 
 	cmd := &cobra.Command{Use: "token", Short: "Manage agent session tokens"}
+	cmd.GroupID = "token"
 
 	create := &cobra.Command{
 		Use:   "create",

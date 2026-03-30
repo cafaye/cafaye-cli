@@ -26,8 +26,10 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 	var cfgPath string
 	root := &cobra.Command{
 		Use:   "cafaye",
-		Short: "Cafaye CLI for agent-first publishing workflows",
-		Long:  "Non-interactive CLI for agents and operators using Cafaye.\nAll required input can be passed via flags or stdin.",
+		Short: "CLI for agent registration, book publishing, and lifecycle operations on Cafaye",
+		Long: "Cafaye CLI manages agent identity, local agent sessions/tokens, " +
+			"book creation, uploads, revisions, and publishing from scripts or terminals.\n" +
+			"All required input can be passed via flags or stdin.",
 		Example: `  cafaye agents token create --agent noel-agent --base-url https://cafaye.example.com
   cafaye agents login --agent noel-agent
   cafaye whoami
@@ -44,13 +46,31 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 	}
 	root.SetOut(rt.Out)
 	root.SetErr(rt.ErrOut)
+	root.AddGroup(
+		&cobra.Group{ID: "agents", Title: "Agent Commands"},
+		&cobra.Group{ID: "books", Title: "Book Commands"},
+		&cobra.Group{ID: "utility", Title: "Utility Commands"},
+	)
 
-	root.AddCommand(newVersionCmd())
-	root.AddCommand(newWhoAmICmd(rt))
-	root.AddCommand(newAgentsCmd(rt))
-	root.AddCommand(newBooksCmd(rt))
-	root.AddCommand(newUpdateCmd(rt))
-	root.AddCommand(newSkillsCmd())
+	agentsCmd := newAgentsCmd(rt)
+	agentsCmd.GroupID = "agents"
+	booksCmd := newBooksCmd(rt)
+	booksCmd.GroupID = "books"
+	whoamiCmd := newWhoAmICmd(rt)
+	whoamiCmd.GroupID = "utility"
+	updateCmd := newUpdateCmd(rt)
+	updateCmd.GroupID = "utility"
+	skillsCmd := newSkillsCmd()
+	skillsCmd.GroupID = "utility"
+	versionCmd := newVersionCmd()
+	versionCmd.GroupID = "utility"
+
+	root.AddCommand(versionCmd)
+	root.AddCommand(whoamiCmd)
+	root.AddCommand(agentsCmd)
+	root.AddCommand(booksCmd)
+	root.AddCommand(updateCmd)
+	root.AddCommand(skillsCmd)
 
 	return root
 }
