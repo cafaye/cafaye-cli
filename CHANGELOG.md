@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.3.6
+
+### Summary
+
+- Removed identifier fields from API responses at the source and aligned CLI output with the API contract.
+
+### Highlights
+
+- Rails API serializers now omit `id` and `*_id` fields directly.
+- CLI no longer performs defensive identifier stripping in output rendering.
+- Updated release process docs to use explicit local release flow (version bump + changelog + tag-based release).
+- Removed automatic release-on-master workflow; releases are now intentional and tag-triggered.
+
+### Breaking Changes
+
+- API clients can no longer rely on `id`/`*_id` fields in CLI-focused API responses.
+
+### Migration Notes
+
+- Use stable non-ID fields from responses (for example `slug`, `username`, status/result fields).
+- Release workflow remains:
+  - bump version
+  - update changelog
+  - `cleo release plan/cut/publish/verify`
+
+### Verification
+
+- `go test ./...`
+- `bundle exec rails test test/controllers/api`
+
 ## v0.3.5
 
 ### Summary
