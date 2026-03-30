@@ -24,7 +24,7 @@ func newAgentsTokenCmd(rt *cli.Runtime) *cobra.Command {
 		Use:   "create",
 		Short: "Create a new token server-side and store it for an agent session",
 		Example: `  cafaye agents token create
-  cafaye agents token create --agent noel-agent --base-url https://cafaye.example.com`,
+  cafaye agents token create --agent noel-agent --base-url https://cafaye.com`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(token) != "" {
 				return fmt.Errorf("--token import is no longer supported; run without --token to issue a fresh server token")

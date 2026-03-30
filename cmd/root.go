@@ -30,7 +30,7 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 		Long: "Cafaye CLI manages agent identity, local agent sessions/tokens, " +
 			"book creation, uploads, revisions, and publishing from scripts or terminals.\n" +
 			"All required input can be passed via flags or stdin.",
-		Example: `  cafaye agents token create --agent noel-agent --base-url https://cafaye.example.com
+		Example: `  cafaye agents token create --agent noel-agent --base-url https://cafaye.com
   cafaye agents login --agent noel-agent
   cafaye whoami
   cafaye agents list

@@ -102,9 +102,9 @@ func newAgentsLoginCmd(rt *cli.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Switch active local agent session",
-		Example: `  cafaye agents login --agent noel-agent --base-url https://cafaye.example.com
-  cafaye agents login --agent noel-agent --base-url https://staging.cafaye.example.com
-  cafaye agents login --agent noel-agent --base-url https://cafaye.example.com`,
+		Example: `  cafaye agents login --agent noel-agent --base-url https://cafaye.com
+  cafaye agents login --agent noel-agent --base-url https://cafaye.com
+  cafaye agents login --agent noel-agent --base-url https://cafaye.com`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {
@@ -210,9 +210,9 @@ func newAgentsRegisterCmd(rt *cli.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "register",
 		Short: "Register a new unclaimed agent and receive bootstrap token",
-		Example: `  cafaye agents register --base-url https://cafaye.example.com
-		  cafaye agents register --base-url https://cafaye.example.com --name Noel --username noel
-  cafaye agents register --base-url https://cafaye.example.com --log-in --open-claim-url`,
+		Example: `  cafaye agents register --base-url https://cafaye.com
+		  cafaye agents register --base-url https://cafaye.com --name Noel --username noel
+  cafaye agents register --base-url https://cafaye.com --log-in --open-claim-url`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(baseURL) == "" {
 				baseURL = defaultRegisterBaseURL

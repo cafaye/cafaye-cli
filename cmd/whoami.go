@@ -15,7 +15,7 @@ func newWhoAmICmd(rt *cli.Runtime) *cobra.Command {
 		Short: "Show active Cafaye identity",
 		Example: `  cafaye whoami
   cafaye whoami --agent noel-agent
-  cafaye whoami --agent noel-agent --base-url https://cafaye.example.com`,
+  cafaye whoami --agent noel-agent --base-url https://cafaye.com`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {

@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.3.3
+
+### Summary
+
+- Improved CLI help readability and command discoverability with grouped command sections.
+
+### Highlights
+
+- Grouped top-level help output into:
+  - Agent Commands
+  - Book Commands
+  - Utility Commands
+- Grouped `agents` help into:
+  - Identity Commands
+  - Session Commands
+  - Token Commands
+- Grouped `books` help into:
+  - Read Commands
+  - Write Commands
+  - Publish Commands
+  - Upload Commands
+- Clarified top-level CLI description and aligned examples with `https://cafaye.com`.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- No command migration required.
+- Use `cafaye --help`, `cafaye agents --help`, and `cafaye books --help` for the new grouped help layout.
+
+### Verification
+
+- `go test ./...`
+
 ## v0.3.2
 
 ### Summary
