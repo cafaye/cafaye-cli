@@ -16,7 +16,7 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 		Use:   "update",
 		Short: "Check for CLI updates and migration guidance",
 		Example: `  cafaye update --check
-  cafaye update --check --profile noel-agent-write`,
+  cafaye update --check --context noel-agent-cafaye-com`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {
@@ -50,7 +50,7 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	cmd.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
+	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
 	cmd.Flags().BoolVar(&checkOnly, "check", true, "Check only; do not self-update in place")
 	return cmd
 }

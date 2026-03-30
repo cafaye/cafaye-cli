@@ -13,7 +13,7 @@ func newWhoAmICmd(rt *cli.Runtime) *cobra.Command {
 		Use:   "whoami",
 		Short: "Show active Cafaye identity",
 		Example: `  cafaye whoami
-  cafaye whoami --profile noel-agent-write`,
+  cafaye whoami --context noel-agent-cafaye-com`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {
@@ -38,6 +38,6 @@ func newWhoAmICmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	cmd.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
+	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
 	return cmd
 }

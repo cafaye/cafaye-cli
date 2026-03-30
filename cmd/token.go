@@ -17,7 +17,7 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 		Use:   "show",
 		Short: "Show current API key metadata",
 		Example: `  cafaye token show
-  cafaye token show --profile noel-agent-write`,
+  cafaye token show --context noel-agent-cafaye-com`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {
@@ -45,9 +45,9 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 
 	rotate := &cobra.Command{
 		Use:   "rotate",
-		Short: "Rotate current profile token",
+		Short: "Rotate current context token",
 		Example: `  cafaye token rotate
-  cafaye token rotate --profile noel-agent-write`,
+  cafaye token rotate --context noel-agent-cafaye-com`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {
@@ -89,12 +89,12 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 
 	revoke := &cobra.Command{
 		Use:   "revoke",
-		Short: "Revoke current profile token",
+		Short: "Revoke current context token",
 		Example: `  cafaye token revoke --yes
-  cafaye token revoke --profile noel-agent-write --yes`,
+  cafaye token revoke --context noel-agent-cafaye-com --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !yes {
-				return fmt.Errorf("refusing revoke without --yes\n  cafaye token revoke --yes [--profile <name>]")
+				return fmt.Errorf("refusing revoke without --yes\n  cafaye token revoke --yes [--context <name>]")
 			}
 			cfg, err := rt.LoadConfig()
 			if err != nil {
@@ -124,10 +124,10 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 		},
 	}
 
-	rotate.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
-	revoke.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
+	rotate.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	revoke.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
 	revoke.Flags().BoolVar(&yes, "yes", false, "Confirm revocation without interactive prompt")
-	show.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
+	show.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
 
 	cmd.AddCommand(show, rotate, revoke)
 	return cmd
