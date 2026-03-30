@@ -30,7 +30,7 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 	cmd := &cobra.Command{Use: "agents", Short: "Agent resources"}
 	list := &cobra.Command{
 		Use:   "list",
-		Short: "List agents and local contexts",
+		Short: "List agents and local agent sessions",
 		Example: `  cafaye agents list
   cafaye agents list --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -38,11 +38,11 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveContext(cfg, agent, baseURL)
+			p, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -58,10 +58,10 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 						_ = json.Unmarshal(homeResp.Body, &current)
 					}
 					return printJSON(cmd.OutOrStdout(), map[string]any{
-						"agents":         []any{},
-						"contexts":       buildLocalContexts(cfg),
-						"active_agent_session": cfg.ActiveProfile,
-						"current_agent":  current["agent"],
+						"agents":               []any{},
+						"agent_sessions":       buildAgentSessions(cfg),
+						"active_agent_session": cfg.ActiveAgentSession,
+						"current_agent":        current["agent"],
 						"remote_error": map[string]any{
 							"status": resp.StatusCode,
 							"body":   summarizeErrorBody(resp.Body),
@@ -75,8 +75,8 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {
 				return err
 			}
-			payload["contexts"] = buildLocalContexts(cfg)
-			payload["active_agent_session"] = cfg.ActiveProfile
+			payload["agent_sessions"] = buildAgentSessions(cfg)
+			payload["active_agent_session"] = cfg.ActiveAgentSession
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
@@ -96,7 +96,7 @@ func newAgentsLoginCmd(rt *cli.Runtime) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Create or switch local agent context",
+		Short: "Create or switch local agent session",
 		Example: `  cafaye agents login --agent noel-agent --base-url https://cafaye.example.com --token $CAFAYE_API_TOKEN
   cafaye agents login --agent noel-agent --base-url https://staging.cafaye.example.com --token $STAGING_TOKEN
   cafaye agents login --agent noel-agent --base-url https://cafaye.example.com`,
@@ -110,9 +110,9 @@ func newAgentsLoginCmd(rt *cli.Runtime) *cobra.Command {
 				token = strings.TrimSpace(os.Getenv("CAFAYE_API_TOKEN"))
 			}
 			if token == "" {
-				return switchExistingAgentContext(rt, cfg, agentUsername, baseURL, cmd)
+				return switchExistingAgentSession(rt, cfg, agentUsername, baseURL, cmd)
 			}
-			return loginAndSaveAgentContext(rt, cfg, agentUsername, baseURL, token, cmd)
+			return loginAndSaveAgentSession(rt, cfg, agentUsername, baseURL, token, cmd)
 		},
 	}
 
@@ -122,17 +122,17 @@ func newAgentsLoginCmd(rt *cli.Runtime) *cobra.Command {
 	return cmd
 }
 
-func switchExistingAgentContext(rt *cli.Runtime, cfg config.File, agentUsername string, baseURL string, cmd *cobra.Command) error {
+func switchExistingAgentSession(rt *cli.Runtime, cfg config.File, agentUsername string, baseURL string, cmd *cobra.Command) error {
 	agentUsername = strings.TrimSpace(agentUsername)
 	baseURL = strings.TrimSpace(baseURL)
-	matches := findContexts(cfg, agentUsername, baseURL)
+	matches := findAgentSessions(cfg, agentUsername, baseURL)
 	if len(matches) == 0 {
 		return fmt.Errorf("no saved agent session matches provided selectors; provide --token to create one")
 	}
 	if len(matches) > 1 {
 		return fmt.Errorf("multiple agent sessions match; specify additional identifying info like --base-url")
 	}
-	cfg.ActiveProfile = matches[0].Name
+	cfg.ActiveAgentSession = matches[0].Name
 	if err := rt.SaveConfig(cfg); err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func switchExistingAgentContext(rt *cli.Runtime, cfg config.File, agentUsername 
 	return nil
 }
 
-func loginAndSaveAgentContext(rt *cli.Runtime, cfg config.File, agentUsername string, baseURL string, token string, cmd *cobra.Command) error {
+func loginAndSaveAgentSession(rt *cli.Runtime, cfg config.File, agentUsername string, baseURL string, token string, cmd *cobra.Command) error {
 	baseURL = strings.TrimSpace(baseURL)
 	if baseURL == "" {
 		baseURL = defaultRegisterBaseURL
@@ -173,34 +173,34 @@ func loginAndSaveAgentContext(rt *cli.Runtime, cfg config.File, agentUsername st
 		return fmt.Errorf("missing --agent and unable to infer agent username from server response")
 	}
 
-	if cfg.Profiles == nil {
-		cfg.Profiles = map[string]config.Profile{}
+	if cfg.AgentSessions == nil {
+		cfg.AgentSessions = map[string]config.AgentSession{}
 	}
 
-	contextName := contextNameForAgentAndBaseURL(resolvedAgent, baseURL)
-	ref := "profile:" + contextName
+	agentSessionName := agentSessionNameForAgentAndBaseURL(resolvedAgent, baseURL)
+	ref := "agent_session:" + agentSessionName
 	if err := rt.Secrets.Set(ref, token); err != nil {
 		return fmt.Errorf("failed to store token securely: %w", err)
 	}
-	cfg.Profiles[contextName] = config.Profile{
-		Name:          contextName,
+	cfg.AgentSessions[agentSessionName] = config.AgentSession{
+		Name:          agentSessionName,
 		BaseURL:       baseURL,
 		AgentUsername: resolvedAgent,
 		TokenRef:      ref,
 	}
-	cfg.ActiveProfile = contextName
+	cfg.ActiveAgentSession = agentSessionName
 	if err := rt.SaveConfig(cfg); err != nil {
 		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "login_ok: %s\n", contextName)
-	fmt.Fprintf(cmd.OutOrStdout(), "active_agent_session: %s\n", contextName)
+	fmt.Fprintf(cmd.OutOrStdout(), "login_ok: %s\n", agentSessionName)
+	fmt.Fprintf(cmd.OutOrStdout(), "active_agent_session: %s\n", agentSessionName)
 	fmt.Fprintf(cmd.OutOrStdout(), "agent: %s\n", resolvedAgent)
 	fmt.Fprintf(cmd.OutOrStdout(), "base_url: %s\n", baseURL)
 	return nil
 }
 
-func contextNameForAgentAndBaseURL(agentUsername string, baseURL string) string {
+func agentSessionNameForAgentAndBaseURL(agentUsername string, baseURL string) string {
 	hostname := "default"
 	if parsed, err := url.Parse(strings.TrimSpace(baseURL)); err == nil && parsed.Host != "" {
 		hostname = strings.ToLower(strings.TrimSpace(parsed.Hostname()))
@@ -211,9 +211,9 @@ func contextNameForAgentAndBaseURL(agentUsername string, baseURL string) string 
 	return fmt.Sprintf("%s-%s", usernameBase(agentUsername), usernameBase(hostname))
 }
 
-func findContexts(cfg config.File, agentUsername string, baseURL string) []config.Profile {
-	matches := make([]config.Profile, 0)
-	for _, p := range cfg.Profiles {
+func findAgentSessions(cfg config.File, agentUsername string, baseURL string) []config.AgentSession {
+	matches := make([]config.AgentSession, 0)
+	for _, p := range cfg.AgentSessions {
 		if strings.TrimSpace(agentUsername) != "" && p.AgentUsername != strings.TrimSpace(agentUsername) {
 			continue
 		}
@@ -226,22 +226,22 @@ func findContexts(cfg config.File, agentUsername string, baseURL string) []confi
 	return matches
 }
 
-func buildLocalContexts(cfg config.File) []map[string]any {
-	contexts := make([]map[string]any, 0, len(cfg.Profiles))
-	for name, p := range cfg.Profiles {
-		contexts = append(contexts, map[string]any{
+func buildAgentSessions(cfg config.File) []map[string]any {
+	agentSessions := make([]map[string]any, 0, len(cfg.AgentSessions))
+	for name, p := range cfg.AgentSessions {
+		agentSessions = append(agentSessions, map[string]any{
 			"name":           p.Name,
 			"agent_username": p.AgentUsername,
 			"base_url":       p.BaseURL,
-			"active":         name == cfg.ActiveProfile,
+			"active":         name == cfg.ActiveAgentSession,
 		})
 	}
-	sort.Slice(contexts, func(i, j int) bool {
-		left, _ := contexts[i]["name"].(string)
-		right, _ := contexts[j]["name"].(string)
+	sort.Slice(agentSessions, func(i, j int) bool {
+		left, _ := agentSessions[i]["name"].(string)
+		right, _ := agentSessions[j]["name"].(string)
 		return left < right
 	})
-	return contexts
+	return agentSessions
 }
 
 func newAgentsRegisterCmd(rt *cli.Runtime) *cobra.Command {
@@ -297,7 +297,7 @@ func newAgentsRegisterCmd(rt *cli.Runtime) *cobra.Command {
 			var persistResult registerPersistResult
 			if !noSave {
 				var err error
-				persistResult, err = saveRegisteredProfile(rt, payload, baseURL, logIn)
+				persistResult, err = saveRegisteredAgentSession(rt, payload, baseURL, logIn)
 				if err != nil {
 					return err
 				}
@@ -314,7 +314,7 @@ func newAgentsRegisterCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Optional agent display name for registration")
 	cmd.Flags().StringVar(&username, "username", "", "Optional agent username for registration")
 	cmd.Flags().BoolVar(&noSave, "no-save", false, "Do not save token/agent-session locally")
-	cmd.Flags().BoolVar(&logIn, "log-in", false, "Set the new agent session as active even when another context is currently logged in")
+	cmd.Flags().BoolVar(&logIn, "log-in", false, "Set the new agent session as active even when another agent session is currently logged in")
 	cmd.Flags().BoolVar(&openClaimURL, "open-claim-url", false, "Open claim URL in browser after register")
 	return cmd
 }
@@ -449,11 +449,11 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveContext(cfg, agent, baseURL)
+			p, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -484,7 +484,7 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 type registerPersistResult struct {
-	ContextName      string
+	AgentSessionName string
 	AgentUsername    string
 	LoggedIn         bool
 	PreviousActive   string
@@ -492,7 +492,7 @@ type registerPersistResult struct {
 	ActiveCheckError error
 }
 
-func saveRegisteredProfile(rt *cli.Runtime, payload map[string]any, baseURL string, forceLogIn bool) (registerPersistResult, error) {
+func saveRegisteredAgentSession(rt *cli.Runtime, payload map[string]any, baseURL string, forceLogIn bool) (registerPersistResult, error) {
 	result := registerPersistResult{}
 	agent, ok := payload["agent"].(map[string]any)
 	if !ok {
@@ -513,23 +513,23 @@ func saveRegisteredProfile(rt *cli.Runtime, payload map[string]any, baseURL stri
 		agentUsername = "agent"
 	}
 
-	contextName := contextNameForAgentAndBaseURL(agentUsername, baseURL)
+	agentSessionName := agentSessionNameForAgentAndBaseURL(agentUsername, baseURL)
 
 	cfg, err := rt.LoadConfig()
 	if err != nil {
 		return result, err
 	}
-	if cfg.Profiles == nil {
-		cfg.Profiles = map[string]config.Profile{}
+	if cfg.AgentSessions == nil {
+		cfg.AgentSessions = map[string]config.AgentSession{}
 	}
-	result.PreviousActive = cfg.ActiveProfile
+	result.PreviousActive = cfg.ActiveAgentSession
 
-	ref := "profile:" + contextName
+	ref := "agent_session:" + agentSessionName
 	if err := rt.Secrets.Set(ref, token); err != nil {
 		return result, fmt.Errorf("failed to store token securely: %w", err)
 	}
-	cfg.Profiles[contextName] = config.Profile{
-		Name:          contextName,
+	cfg.AgentSessions[agentSessionName] = config.AgentSession{
+		Name:          agentSessionName,
 		BaseURL:       baseURL,
 		AgentUsername: agentUsername,
 		TokenRef:      ref,
@@ -537,29 +537,29 @@ func saveRegisteredProfile(rt *cli.Runtime, payload map[string]any, baseURL stri
 
 	shouldLogIn := forceLogIn
 	if !forceLogIn {
-		ok, checkErr := activeProfileAuthenticated(rt, cfg)
+		ok, checkErr := activeAgentSessionAuthenticated(rt, cfg)
 		result.ActiveCheckError = checkErr
 		shouldLogIn = !ok
 	}
 	if shouldLogIn {
-		cfg.ActiveProfile = contextName
+		cfg.ActiveAgentSession = agentSessionName
 		result.LoggedIn = true
 	}
 
 	if err := rt.SaveConfig(cfg); err != nil {
 		return result, err
 	}
-	result.ContextName = contextName
+	result.AgentSessionName = agentSessionName
 	result.AgentUsername = agentUsername
-	result.CurrentActive = cfg.ActiveProfile
+	result.CurrentActive = cfg.ActiveAgentSession
 	return result, nil
 }
 
-func activeProfileAuthenticated(rt *cli.Runtime, cfg config.File) (bool, error) {
-	if strings.TrimSpace(cfg.ActiveProfile) == "" {
+func activeAgentSessionAuthenticated(rt *cli.Runtime, cfg config.File) (bool, error) {
+	if strings.TrimSpace(cfg.ActiveAgentSession) == "" {
 		return false, nil
 	}
-	client, err := clientForProfile(rt, cfg, "")
+	client, err := clientForAgentSession(rt, cfg, "")
 	if err != nil {
 		return false, nil
 	}
@@ -619,7 +619,7 @@ func printRegisterSummary(cmd *cobra.Command, payload map[string]any, persist re
 	if noSave {
 		fmt.Fprintln(cmd.ErrOrStderr(), "agent_session_saved: false (--no-save)")
 	} else {
-		fmt.Fprintf(cmd.ErrOrStderr(), "agent_session_saved: %s\n", persist.ContextName)
+		fmt.Fprintf(cmd.ErrOrStderr(), "agent_session_saved: %s\n", persist.AgentSessionName)
 		if persist.LoggedIn {
 			fmt.Fprintf(cmd.ErrOrStderr(), "logged_in: true (active_agent_session=%s)\n", persist.CurrentActive)
 		} else {

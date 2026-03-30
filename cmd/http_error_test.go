@@ -60,7 +60,7 @@ func TestSummarizeErrorBodyIncludesAgentHint(t *testing.T) {
 	body := []byte(`{"error":"agent_required","detail":"agent principal is required"}`)
 
 	got := summarizeErrorBody(body)
-	if !strings.Contains(got, "hint=use a claimed agent profile/token") {
+	if !strings.Contains(got, "hint=use a claimed agent session token") {
 		t.Fatalf("expected agent hint in summary, got: %s", got)
 	}
 }

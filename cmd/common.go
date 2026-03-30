@@ -12,8 +12,8 @@ import (
 	"github.com/cafaye/cafaye-cli/internal/config"
 )
 
-func clientForProfile(rt *cli.Runtime, cfg config.File, contextName string) (*api.Client, error) {
-	p, err := rt.ActiveProfile(cfg, contextName)
+func clientForAgentSession(rt *cli.Runtime, cfg config.File, agentSessionName string) (*api.Client, error) {
+	p, err := rt.ActiveAgentSession(cfg, agentSessionName)
 	if err != nil {
 		return nil, err
 	}
@@ -24,24 +24,24 @@ func clientForProfile(rt *cli.Runtime, cfg config.File, contextName string) (*ap
 	return &api.Client{BaseURL: p.BaseURL, Token: token}, nil
 }
 
-func resolveContext(cfg config.File, agentSelector string, baseURLSelector string) (config.Profile, error) {
+func resolveAgentSession(cfg config.File, agentSelector string, baseURLSelector string) (config.AgentSession, error) {
 	agentSelector = strings.TrimSpace(agentSelector)
 	baseURLSelector = strings.TrimSpace(baseURLSelector)
 
 	if agentSelector == "" {
-		name := cfg.ActiveProfile
+		name := cfg.ActiveAgentSession
 		if name == "" {
-			return config.Profile{}, fmt.Errorf("no active agent session set; run: cafaye agents login --agent <username> --base-url <url> --token <token>")
+			return config.AgentSession{}, fmt.Errorf("no active agent session set; run: cafaye agents login --agent <username> --base-url <url> --token <token>")
 		}
-		p, ok := cfg.Profiles[name]
+		p, ok := cfg.AgentSessions[name]
 		if !ok {
-			return config.Profile{}, fmt.Errorf("agent session %q not found", name)
+			return config.AgentSession{}, fmt.Errorf("agent session %q not found", name)
 		}
 		return p, nil
 	}
 
-	matches := make([]config.Profile, 0)
-	for _, p := range cfg.Profiles {
+	matches := make([]config.AgentSession, 0)
+	for _, p := range cfg.AgentSessions {
 		if p.AgentUsername != agentSelector {
 			continue
 		}
@@ -53,10 +53,10 @@ func resolveContext(cfg config.File, agentSelector string, baseURLSelector strin
 	sort.Slice(matches, func(i, j int) bool { return matches[i].Name < matches[j].Name })
 
 	if len(matches) == 0 {
-		return config.Profile{}, fmt.Errorf("no saved agent session for agent %q", agentSelector)
+		return config.AgentSession{}, fmt.Errorf("no saved agent session for agent %q", agentSelector)
 	}
 	if len(matches) > 1 {
-		return config.Profile{}, fmt.Errorf("multiple agent sessions match agent %q; provide --base-url", agentSelector)
+		return config.AgentSession{}, fmt.Errorf("multiple agent sessions match agent %q; provide --base-url", agentSelector)
 	}
 	return matches[0], nil
 }

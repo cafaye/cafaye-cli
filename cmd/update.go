@@ -23,11 +23,11 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveContext(cfg, agent, baseURL)
+			p, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}

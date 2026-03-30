@@ -117,7 +117,7 @@ func summarizeStructuredError(parsed map[string]any) string {
 func errorHint(code string) string {
 	switch strings.TrimSpace(code) {
 	case "agent_required":
-		return "use a claimed agent profile/token for create or upload operations"
+		return "use a claimed agent session token for create or upload operations"
 	default:
 		return ""
 	}

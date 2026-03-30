@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-type Profile struct {
+type AgentSession struct {
 	Name          string `json:"name"`
 	BaseURL       string `json:"base_url"`
 	AgentUsername string `json:"agent_username"`
@@ -15,8 +15,8 @@ type Profile struct {
 }
 
 type File struct {
-	ActiveProfile string             `json:"active_profile"`
-	Profiles      map[string]Profile `json:"profiles"`
+	ActiveAgentSession string                  `json:"active_agent_session"`
+	AgentSessions      map[string]AgentSession `json:"agent_sessions"`
 }
 
 func DefaultPath() (string, error) {
@@ -28,7 +28,7 @@ func DefaultPath() (string, error) {
 }
 
 func Load(path string) (File, error) {
-	cfg := File{Profiles: map[string]Profile{}}
+	cfg := File{AgentSessions: map[string]AgentSession{}}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -42,8 +42,8 @@ func Load(path string) (File, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return File{}, err
 	}
-	if cfg.Profiles == nil {
-		cfg.Profiles = map[string]Profile{}
+	if cfg.AgentSessions == nil {
+		cfg.AgentSessions = map[string]AgentSession{}
 	}
 	return cfg, nil
 }

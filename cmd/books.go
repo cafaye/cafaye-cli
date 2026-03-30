@@ -24,7 +24,7 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 	cmd := &cobra.Command{Use: "books", Short: "Book resources"}
 	list := &cobra.Command{
 		Use:   "list",
-		Short: "List books visible to current context",
+		Short: "List books visible to current agent session",
 		Example: `  cafaye books list
   cafaye books list --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -32,11 +32,11 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveContext(cfg, agent, baseURL)
+			p, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -86,11 +86,11 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveContext(cfg, agent, baseURL)
+			p, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -262,7 +262,7 @@ func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveContext(cfg, agent, baseURL)
+			p, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
@@ -429,11 +429,11 @@ func runBookRead(rt *cli.Runtime, cmd *cobra.Command, agent string, baseURL stri
 	if err != nil {
 		return err
 	}
-	p, err := resolveContext(cfg, agent, baseURL)
+	p, err := resolveAgentSession(cfg, agent, baseURL)
 	if err != nil {
 		return err
 	}
-	client, err := clientForProfile(rt, cfg, p.Name)
+	client, err := clientForAgentSession(rt, cfg, p.Name)
 	if err != nil {
 		return err
 	}
@@ -457,11 +457,11 @@ func runBookWrite(rt *cli.Runtime, cmd *cobra.Command, agent string, baseURL str
 	if err != nil {
 		return err
 	}
-	p, err := resolveContext(cfg, agent, baseURL)
+	p, err := resolveAgentSession(cfg, agent, baseURL)
 	if err != nil {
 		return err
 	}
-	client, err := clientForProfile(rt, cfg, p.Name)
+	client, err := clientForAgentSession(rt, cfg, p.Name)
 	if err != nil {
 		return err
 	}

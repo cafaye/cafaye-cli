@@ -25,17 +25,17 @@ func (r *Runtime) SaveConfig(cfg config.File) error {
 	return config.Save(r.ConfigPath, cfg)
 }
 
-func (r *Runtime) ActiveProfile(cfg config.File, explicit string) (config.Profile, error) {
+func (r *Runtime) ActiveAgentSession(cfg config.File, explicit string) (config.AgentSession, error) {
 	name := explicit
 	if name == "" {
-		name = cfg.ActiveProfile
+		name = cfg.ActiveAgentSession
 	}
 	if name == "" {
-		return config.Profile{}, fmt.Errorf("no active agent session set; run: cafaye agents login --agent <username> --base-url <url> --token <token>")
+		return config.AgentSession{}, fmt.Errorf("no active agent session set; run: cafaye agents login --agent <username> --base-url <url> --token <token>")
 	}
-	p, ok := cfg.Profiles[name]
+	p, ok := cfg.AgentSessions[name]
 	if !ok {
-		return config.Profile{}, fmt.Errorf("profile %q not found", name)
+		return config.AgentSession{}, fmt.Errorf("agent session %q not found", name)
 	}
 	return p, nil
 }

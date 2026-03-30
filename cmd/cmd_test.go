@@ -38,15 +38,15 @@ func exec(t *testing.T, root *cobra.Command, args ...string) error {
 	return root.Execute()
 }
 
-func seedProfile(t *testing.T, rt *cli.Runtime, name string, baseURL string, token string) {
+func seedAgentSession(t *testing.T, rt *cli.Runtime, name string, baseURL string, token string) {
 	t.Helper()
-	cfg := config.File{ActiveProfile: name, Profiles: map[string]config.Profile{
-		name: {Name: name, BaseURL: baseURL, AgentUsername: "agent", TokenRef: "profile:" + name},
+	cfg := config.File{ActiveAgentSession: name, AgentSessions: map[string]config.AgentSession{
+		name: {Name: name, BaseURL: baseURL, AgentUsername: "agent", TokenRef: "agent_session:" + name},
 	}}
 	if err := rt.SaveConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := rt.Secrets.Set("profile:"+name, token); err != nil {
+	if err := rt.Secrets.Set("agent_session:"+name, token); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -80,8 +80,8 @@ func TestAgentsLoginWithTokenAndList(t *testing.T) {
 	if err := exec(t, root, "agents", "list", "--agent", "a1", "--base-url", s.URL); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `"contexts"`) {
-		t.Fatalf("expected contexts in agents list, got: %s", out.String())
+	if !strings.Contains(out.String(), `"agent_sessions"`) {
+		t.Fatalf("expected agent_sessions in agents list, got: %s", out.String())
 	}
 }
 
@@ -94,7 +94,7 @@ func TestAgentsLoginWithoutTokenAndNoContextFails(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "no saved agent session matches") {
-		t.Fatalf("expected context selection error, got: %v", err)
+		t.Fatalf("expected agent session selection error, got: %v", err)
 	}
 }
 
@@ -108,7 +108,7 @@ func TestWhoamiShowsDeprecationGuidance(t *testing.T) {
 	defer s.Close()
 
 	rt, out, errOut, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
 	if err := exec(t, root, "whoami"); err != nil {
@@ -130,7 +130,7 @@ func TestWhoamiFailureSummarizesHTMLBody(t *testing.T) {
 	defer s.Close()
 
 	rt, _, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
 	err := exec(t, root, "whoami")
@@ -159,7 +159,7 @@ func TestUpdateFallbackWhenEndpointUnavailable(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
 	if err := exec(t, root, "update", "--check"); err != nil {
@@ -206,7 +206,7 @@ func TestUploadSupportsStdin(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 	root.SetIn(strings.NewReader("zipbytes"))
 
@@ -261,7 +261,7 @@ func TestBooksCreateCreatesSlugWorkspaceAndInstallsSkill(t *testing.T) {
 
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	custom := filepath.Join(t.TempDir(), "books")
 	if err := exec(t, root, "books", "create", "--title", "My New Book", "--subtitle", "Sub", "--books-dir", custom); err != nil {
 		t.Fatal(err)
@@ -295,7 +295,7 @@ func TestBooksCreateSupportsSkipTemplates(t *testing.T) {
 
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	custom := filepath.Join(t.TempDir(), "books")
 	if err := exec(t, root, "books", "create", "--title", "Bare Workspace", "--books-dir", custom, "--skip-templates"); err != nil {
 		t.Fatal(err)
@@ -320,7 +320,7 @@ func TestUpdateReturnsServerPayload(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
 	if err := exec(t, root, "update", "--check"); err != nil {
@@ -366,10 +366,10 @@ func TestAgentsLoginStoresContextAfterVerification(t *testing.T) {
 func TestAgentsLoginSwitchesExistingContextByAgentUsername(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	cfg := config.File{
-		ActiveProfile: "p1",
-		Profiles: map[string]config.Profile{
-			"p1": {Name: "p1", AgentUsername: "agent-a", BaseURL: "x", TokenRef: "profile:p1"},
-			"p2": {Name: "p2", AgentUsername: "agent-b", BaseURL: "x", TokenRef: "profile:p2"},
+		ActiveAgentSession: "p1",
+		AgentSessions: map[string]config.AgentSession{
+			"p1": {Name: "p1", AgentUsername: "agent-a", BaseURL: "x", TokenRef: "agent_session:p1"},
+			"p2": {Name: "p2", AgentUsername: "agent-b", BaseURL: "x", TokenRef: "agent_session:p2"},
 		},
 	}
 	if err := rt.SaveConfig(cfg); err != nil {
@@ -380,17 +380,17 @@ func TestAgentsLoginSwitchesExistingContextByAgentUsername(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "active_agent_session: p2") {
-		t.Fatalf("expected active context output, got: %s", out.String())
+		t.Fatalf("expected active agent session output, got: %s", out.String())
 	}
 }
 
 func TestAgentsLoginSwitchRequiresAdditionalSelectorWhenMultipleContextsMatch(t *testing.T) {
 	rt, _, _, _ := testRuntime(t)
 	cfg := config.File{
-		ActiveProfile: "p1",
-		Profiles: map[string]config.Profile{
-			"p1": {Name: "p1", AgentUsername: "agent-a", BaseURL: "https://prod.example.com", TokenRef: "profile:p1"},
-			"p2": {Name: "p2", AgentUsername: "agent-a", BaseURL: "https://staging.example.com", TokenRef: "profile:p2"},
+		ActiveAgentSession: "p1",
+		AgentSessions: map[string]config.AgentSession{
+			"p1": {Name: "p1", AgentUsername: "agent-a", BaseURL: "https://prod.example.com", TokenRef: "agent_session:p1"},
+			"p2": {Name: "p2", AgentUsername: "agent-a", BaseURL: "https://staging.example.com", TokenRef: "agent_session:p2"},
 		},
 	}
 	if err := rt.SaveConfig(cfg); err != nil {
@@ -409,10 +409,10 @@ func TestAgentsLoginSwitchRequiresAdditionalSelectorWhenMultipleContextsMatch(t 
 func TestAgentsLoginCanSelectContextByAgentAndBaseURL(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	cfg := config.File{
-		ActiveProfile: "p1",
-		Profiles: map[string]config.Profile{
-			"p1": {Name: "p1", AgentUsername: "agent-a", BaseURL: "https://prod.example.com", TokenRef: "profile:p1"},
-			"p2": {Name: "p2", AgentUsername: "agent-a", BaseURL: "https://staging.example.com", TokenRef: "profile:p2"},
+		ActiveAgentSession: "p1",
+		AgentSessions: map[string]config.AgentSession{
+			"p1": {Name: "p1", AgentUsername: "agent-a", BaseURL: "https://prod.example.com", TokenRef: "agent_session:p1"},
+			"p2": {Name: "p2", AgentUsername: "agent-a", BaseURL: "https://staging.example.com", TokenRef: "agent_session:p2"},
 		},
 	}
 	if err := rt.SaveConfig(cfg); err != nil {
@@ -423,7 +423,7 @@ func TestAgentsLoginCanSelectContextByAgentAndBaseURL(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "active_agent_session: p2") {
-		t.Fatalf("expected context switch output, got: %s", out.String())
+		t.Fatalf("expected agent session switch output, got: %s", out.String())
 	}
 }
 
@@ -443,13 +443,13 @@ func TestAgentsListFallsBackToLocalContextsForUnclaimedAgent(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 	if err := exec(t, root, "agents", "list"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `"contexts"`) {
-		t.Fatalf("expected contexts in output, got: %s", out.String())
+	if !strings.Contains(out.String(), `"agent_sessions"`) {
+		t.Fatalf("expected agent_sessions in output, got: %s", out.String())
 	}
 	if !strings.Contains(out.String(), `"remote_error"`) {
 		t.Fatalf("expected remote_error in output, got: %s", out.String())
@@ -482,14 +482,14 @@ func TestAgentsRegisterCreatesProfileByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ActiveProfile != "agent-abc-127-0-0-1" {
-		t.Fatalf("expected active context agent-abc-127-0-0-1, got: %s", cfg.ActiveProfile)
+	if cfg.ActiveAgentSession != "agent-abc-127-0-0-1" {
+		t.Fatalf("expected active agent session agent-abc-127-0-0-1, got: %s", cfg.ActiveAgentSession)
 	}
-	p := cfg.Profiles["agent-abc-127-0-0-1"]
+	p := cfg.AgentSessions["agent-abc-127-0-0-1"]
 	if p.AgentUsername != "agent-abc" {
 		t.Fatalf("expected agent username to be saved, got: %+v", p)
 	}
-	token, err := rt.Secrets.Get("profile:agent-abc-127-0-0-1")
+	token, err := rt.Secrets.Get("agent_session:agent-abc-127-0-0-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -518,7 +518,7 @@ func TestAgentsRegisterNoSaveDoesNotPersistProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ActiveProfile != "" || len(cfg.Profiles) != 0 {
+	if cfg.ActiveAgentSession != "" || len(cfg.AgentSessions) != 0 {
 		t.Fatalf("expected no saved profile, got: %+v", cfg)
 	}
 }
@@ -710,7 +710,7 @@ func TestAgentsRegisterDoesNotSwitchActiveWhenAlreadyLoggedIn(t *testing.T) {
 	defer s.Close()
 
 	rt, _, errOut, _ := testRuntime(t)
-	seedProfile(t, rt, "existing", s.URL, "tok_existing")
+	seedAgentSession(t, rt, "existing", s.URL, "tok_existing")
 	root := NewRootCmdWithRuntime(rt)
 	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "New Agent"); err != nil {
 		t.Fatal(err)
@@ -720,11 +720,11 @@ func TestAgentsRegisterDoesNotSwitchActiveWhenAlreadyLoggedIn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ActiveProfile != "existing" {
-		t.Fatalf("expected active profile to remain existing, got: %s", cfg.ActiveProfile)
+	if cfg.ActiveAgentSession != "existing" {
+		t.Fatalf("expected active profile to remain existing, got: %s", cfg.ActiveAgentSession)
 	}
-	if _, ok := cfg.Profiles["new-agent-127-0-0-1"]; !ok {
-		t.Fatalf("expected new profile for new-agent, got: %+v", cfg.Profiles)
+	if _, ok := cfg.AgentSessions["new-agent-127-0-0-1"]; !ok {
+		t.Fatalf("expected new profile for new-agent, got: %+v", cfg.AgentSessions)
 	}
 	if !strings.Contains(errOut.String(), "logged_in: false") {
 		t.Fatalf("expected non-login summary, got: %s", errOut.String())
@@ -747,7 +747,7 @@ func TestAgentsRegisterSwitchesActiveWhenCurrentProfileUnauthorized(t *testing.T
 	defer s.Close()
 
 	rt, _, _, _ := testRuntime(t)
-	seedProfile(t, rt, "existing", s.URL, "tok_existing")
+	seedAgentSession(t, rt, "existing", s.URL, "tok_existing")
 	root := NewRootCmdWithRuntime(rt)
 	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "New Agent"); err != nil {
 		t.Fatal(err)
@@ -757,8 +757,8 @@ func TestAgentsRegisterSwitchesActiveWhenCurrentProfileUnauthorized(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ActiveProfile != "new-agent-127-0-0-1" {
-		t.Fatalf("expected active context to switch to new-agent-127-0-0-1, got: %s", cfg.ActiveProfile)
+	if cfg.ActiveAgentSession != "new-agent-127-0-0-1" {
+		t.Fatalf("expected active agent session to switch to new-agent-127-0-0-1, got: %s", cfg.ActiveAgentSession)
 	}
 }
 
@@ -777,7 +777,7 @@ func TestAgentsRegisterLogInFlagSwitchesEvenWhenAlreadyLoggedIn(t *testing.T) {
 	defer s.Close()
 
 	rt, _, errOut, _ := testRuntime(t)
-	seedProfile(t, rt, "existing", s.URL, "tok_existing")
+	seedAgentSession(t, rt, "existing", s.URL, "tok_existing")
 	root := NewRootCmdWithRuntime(rt)
 	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "New Agent", "--log-in"); err != nil {
 		t.Fatal(err)
@@ -787,8 +787,8 @@ func TestAgentsRegisterLogInFlagSwitchesEvenWhenAlreadyLoggedIn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ActiveProfile != "new-agent-127-0-0-1" {
-		t.Fatalf("expected active context to switch to new-agent-127-0-0-1, got: %s", cfg.ActiveProfile)
+	if cfg.ActiveAgentSession != "new-agent-127-0-0-1" {
+		t.Fatalf("expected active agent session to switch to new-agent-127-0-0-1, got: %s", cfg.ActiveAgentSession)
 	}
 	if !strings.Contains(errOut.String(), "logged_in: true") {
 		t.Fatalf("expected login summary, got: %s", errOut.String())
@@ -809,7 +809,7 @@ func TestTokenRotateUpdatesStoredSecret(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "old-token")
+	seedAgentSession(t, rt, "p1", s.URL, "old-token")
 	root := NewRootCmdWithRuntime(rt)
 	if err := exec(t, root, "token", "rotate"); err != nil {
 		t.Fatal(err)
@@ -817,7 +817,7 @@ func TestTokenRotateUpdatesStoredSecret(t *testing.T) {
 	if !strings.Contains(out.String(), "token_rotated: true") {
 		t.Fatalf("expected rotate output, got: %s", out.String())
 	}
-	got, err := rt.Secrets.Get("profile:p1")
+	got, err := rt.Secrets.Get("agent_session:p1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -849,7 +849,7 @@ func TestUploadShow(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 	if err := exec(t, root, "upload", "show", "--id", "7"); err != nil {
 		t.Fatal(err)
@@ -873,7 +873,7 @@ func TestBooksPricing(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 	if err := exec(t, root, "books", "pricing", "--book-id", "42", "--pricing-type", "paid", "--price-cents", "1200"); err != nil {
 		t.Fatal(err)
@@ -904,7 +904,7 @@ func TestBooksPublishAndUnpublish(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
 	if err := exec(t, root, "books", "publish", "--book-id", "42", "--revision-id", "7"); err != nil {
@@ -934,7 +934,7 @@ func TestAgentsClaim(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 	if err := exec(t, root, "agents", "claim-link", "refresh", "--agent-id", "11"); err != nil {
 		t.Fatal(err)
@@ -955,7 +955,7 @@ func TestTokenShow(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 	if err := exec(t, root, "token", "show"); err != nil {
 		t.Fatal(err)
@@ -980,7 +980,7 @@ func TestBooksReadCommands(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
 	if err := exec(t, root, "books", "revisions", "--book-id", "42"); err != nil {
@@ -1018,7 +1018,7 @@ func TestBooksCreateUpdateAndCover(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedProfile(t, rt, "p1", s.URL, "tok")
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
 	if err := exec(t, root, "books", "create", "--title", "New"); err != nil {
