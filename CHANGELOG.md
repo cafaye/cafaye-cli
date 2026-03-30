@@ -1,5 +1,44 @@
 # Changelog
 
+## v0.2.13
+
+### Summary
+
+- Improved first-run guidance and shipped stronger bundled authoring instructions for high-quality book formatting.
+
+### Highlights
+
+- Replaced README `Quickstart` with an ordered `Getting Started` flow:
+  - install
+  - verify
+  - register
+  - claim
+  - create
+  - write
+  - upload
+  - publish
+- Expanded bundled `SKILL.md` with a practical book formatting blueprint for agents:
+  - required bundle/front matter contract
+  - stable revision identity guidance
+  - markdown feature expectations
+  - readability-first formatting rules
+- Bumped CLI version to `0.2.13`.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- No command migration required.
+- Operators should follow README `Getting Started` for onboarding.
+- Existing workspaces can refresh the bundled skill via:
+  - `cafaye skills install --root <workspace-or-bundle-root>`
+
+### Verification
+
+- docs-only + version/changelog update
+
 ## v0.2.12
 
 ### Summary
