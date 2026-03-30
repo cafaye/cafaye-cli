@@ -379,36 +379,39 @@ func TestAgentsRegisterCreatesProfileByDefault(t *testing.T) {
 			t.Fatalf("expected no auth header for register, got: %q", got)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"agent-abc","name":"Agent ABC","status":"unclaimed"},"api_key":{"id":2,"token":"tok_new","scopes":["books:write"]},"claim_url":"http://localhost/claims/x"}`))
+		_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"agent-abc","name":"Agent ABC","status":"unclaimed"},"api_key":{"id":2,"token":"tok_new","scopes":["books:write"]},"claim":{"url":"http://localhost/claims/x","message":"Have a human owner open this URL, sign in, and complete claim before publishing."}}`))
 	}))
 	defer s.Close()
 
-	rt, out, _, _ := testRuntime(t)
+	rt, out, errOut, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
-	if err := exec(t, root, "agents", "register", "--base-url", s.URL); err != nil {
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "Agent ABC"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `"claim_url"`) {
-		t.Fatalf("expected claim_url in output, got: %s", out.String())
+	if !strings.Contains(out.String(), `"claim"`) {
+		t.Fatalf("expected claim object in output, got: %s", out.String())
 	}
 
 	cfg, err := rt.LoadConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ActiveProfile != "agent-abc" {
-		t.Fatalf("expected active profile agent-abc, got: %s", cfg.ActiveProfile)
+	if cfg.ActiveProfile != "agent-abc-profile" {
+		t.Fatalf("expected active profile agent-abc-profile, got: %s", cfg.ActiveProfile)
 	}
-	p := cfg.Profiles["agent-abc"]
+	p := cfg.Profiles["agent-abc-profile"]
 	if p.AgentUsername != "agent-abc" {
 		t.Fatalf("expected agent username to be saved, got: %+v", p)
 	}
-	token, err := rt.Secrets.Get("profile:agent-abc")
+	token, err := rt.Secrets.Get("profile:agent-abc-profile")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if token != "tok_new" {
 		t.Fatalf("expected saved token tok_new, got: %s", token)
+	}
+	if !strings.Contains(errOut.String(), "claim_required:") {
+		t.Fatalf("expected claim guidance in stderr, got: %s", errOut.String())
 	}
 }
 
@@ -421,7 +424,7 @@ func TestAgentsRegisterNoSaveDoesNotPersistProfile(t *testing.T) {
 
 	rt, _, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
-	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--no-save"); err != nil {
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "Agent ABC", "--no-save"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -431,6 +434,278 @@ func TestAgentsRegisterNoSaveDoesNotPersistProfile(t *testing.T) {
 	}
 	if cfg.ActiveProfile != "" || len(cfg.Profiles) != 0 {
 		t.Fatalf("expected no saved profile, got: %+v", cfg)
+	}
+}
+
+func TestAgentsRegisterPassesOptionalNameAndUsername(t *testing.T) {
+	var gotName, gotUsername string
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/agents" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		gotName, _ = body["name"].(string)
+		gotUsername, _ = body["username"].(string)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"noel","name":"Noel","status":"unclaimed"},"api_key":{"id":2,"token":"tok_new","scopes":["books:write"]},"claim":{"url":"http://localhost/claims/x","message":"Have a human owner open this URL, sign in, and complete claim before publishing."}}`))
+	}))
+	defer s.Close()
+
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "Noel", "--username", "noel", "--no-save"); err != nil {
+		t.Fatal(err)
+	}
+
+	if gotName != "Noel" {
+		t.Fatalf("expected name Noel, got: %q", gotName)
+	}
+	if gotUsername != "noel" {
+		t.Fatalf("expected username noel, got: %q", gotUsername)
+	}
+}
+
+func TestAgentsRegisterPromptsForNameWhenMissing(t *testing.T) {
+	var gotName, gotUsername string
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/agents" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		gotName, _ = body["name"].(string)
+		gotUsername, _ = body["username"].(string)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"noel-agent-ab12","status":"unclaimed"},"api_key":{"id":2,"token":"tok_new"}}`))
+	}))
+	defer s.Close()
+
+	rt, _, errOut, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	root.SetIn(strings.NewReader("Noel Agent\n"))
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--no-save"); err != nil {
+		t.Fatal(err)
+	}
+
+	if gotName != "Noel Agent" {
+		t.Fatalf("expected prompted name to be sent, got: %q", gotName)
+	}
+	if !strings.HasPrefix(gotUsername, "noel-agent-") {
+		t.Fatalf("expected autogenerated username prefix, got: %q", gotUsername)
+	}
+	if strings.ToLower(gotUsername) != gotUsername {
+		t.Fatalf("expected lowercase autogenerated username, got: %q", gotUsername)
+	}
+	if !strings.Contains(errOut.String(), "Agent display name:") {
+		t.Fatalf("expected prompt output, got: %q", errOut.String())
+	}
+}
+
+func TestAgentsRegisterMissingNameAndNoInputFails(t *testing.T) {
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	root.SetIn(strings.NewReader(""))
+
+	err := exec(t, root, "agents", "register", "--base-url", "https://cafaye.example.com", "--no-save")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "missing --name") {
+		t.Fatalf("expected missing name error, got: %v", err)
+	}
+}
+
+func TestAgentsRegisterDefaultsBaseURLWhenMissing(t *testing.T) {
+	var gotHost string
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHost = r.Host
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"noel-agent-ab12","status":"unclaimed"},"api_key":{"id":2,"token":"tok_new"}}`))
+	}))
+	defer s.Close()
+
+	prev := defaultRegisterBaseURL
+	defaultRegisterBaseURL = s.URL
+	defer func() { defaultRegisterBaseURL = prev }()
+
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "register", "--name", "Noel Agent", "--no-save"); err != nil {
+		t.Fatal(err)
+	}
+	if gotHost == "" {
+		t.Fatal("expected request to default base URL server")
+	}
+}
+
+func TestAgentsRegisterRetriesAutogeneratedUsernameOnConflict(t *testing.T) {
+	var requests []string
+	callCount := 0
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/agents" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		username, _ := body["username"].(string)
+		requests = append(requests, username)
+		w.Header().Set("Content-Type", "application/json")
+		callCount++
+		if callCount == 1 {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = w.Write([]byte(`{"error":"invalid_agent","details":["Username has already been taken"]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"noel-agent-xy99","status":"unclaimed"},"api_key":{"id":2,"token":"tok_new"}}`))
+	}))
+	defer s.Close()
+
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "Noel Agent", "--no-save"); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(requests) < 2 {
+		t.Fatalf("expected retry on username conflict, got %d attempts", len(requests))
+	}
+	if requests[0] == requests[1] {
+		t.Fatalf("expected second autogenerated username to differ, got: %q then %q", requests[0], requests[1])
+	}
+}
+
+func TestAgentsRegisterOpenClaimURLUsesOpener(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"agent-abc","status":"unclaimed"},"api_key":{"id":2,"token":"tok_new"},"claim":{"url":"http://localhost/claims/x"}}`))
+	}))
+	defer s.Close()
+
+	var opened string
+	prevOpen := openURLFn
+	openURLFn = func(url string) error {
+		opened = url
+		return nil
+	}
+	defer func() { openURLFn = prevOpen }()
+
+	rt, _, errOut, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "Noel", "--open-claim-url", "--no-save"); err != nil {
+		t.Fatal(err)
+	}
+	if opened != "http://localhost/claims/x" {
+		t.Fatalf("expected claim url opener to be called, got: %q", opened)
+	}
+	if !strings.Contains(errOut.String(), "claim_url_opened: true") {
+		t.Fatalf("expected claim open summary, got: %s", errOut.String())
+	}
+}
+
+func TestAgentsRegisterDoesNotSwitchActiveWhenAlreadyLoggedIn(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/agents/home":
+			_, _ = w.Write([]byte(`{"agent":{"username":"existing-agent"}}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/agents":
+			_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"new-agent","status":"unclaimed"},"api_key":{"id":2,"token":"tok_new"}}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer s.Close()
+
+	rt, _, errOut, _ := testRuntime(t)
+	seedProfile(t, rt, "existing", s.URL, "tok_existing")
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "New Agent"); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := rt.LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ActiveProfile != "existing" {
+		t.Fatalf("expected active profile to remain existing, got: %s", cfg.ActiveProfile)
+	}
+	if _, ok := cfg.Profiles["new-agent-profile"]; !ok {
+		t.Fatalf("expected new profile for new-agent, got: %+v", cfg.Profiles)
+	}
+	if !strings.Contains(errOut.String(), "logged_in: false") {
+		t.Fatalf("expected non-login summary, got: %s", errOut.String())
+	}
+}
+
+func TestAgentsRegisterSwitchesActiveWhenCurrentProfileUnauthorized(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/agents/home":
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/agents":
+			_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"new-agent","status":"unclaimed"},"api_key":{"id":2,"token":"tok_new"}}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer s.Close()
+
+	rt, _, _, _ := testRuntime(t)
+	seedProfile(t, rt, "existing", s.URL, "tok_existing")
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "New Agent"); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := rt.LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ActiveProfile != "new-agent-profile" {
+		t.Fatalf("expected active profile to switch to new-agent-profile, got: %s", cfg.ActiveProfile)
+	}
+}
+
+func TestAgentsRegisterLogInFlagSwitchesEvenWhenAlreadyLoggedIn(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/agents/home":
+			_, _ = w.Write([]byte(`{"agent":{"username":"existing-agent"}}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/agents":
+			_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"new-agent","status":"unclaimed"},"api_key":{"id":2,"token":"tok_new"}}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer s.Close()
+
+	rt, _, errOut, _ := testRuntime(t)
+	seedProfile(t, rt, "existing", s.URL, "tok_existing")
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "New Agent", "--log-in"); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := rt.LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ActiveProfile != "new-agent-profile" {
+		t.Fatalf("expected active profile to switch to new-agent-profile, got: %s", cfg.ActiveProfile)
+	}
+	if !strings.Contains(errOut.String(), "logged_in: true") {
+		t.Fatalf("expected login summary, got: %s", errOut.String())
 	}
 }
 
@@ -568,7 +843,7 @@ func TestAgentsClaim(t *testing.T) {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"agent":{"id":11,"status":"unclaimed"},"claim_url":"http://localhost/claims/token"}`))
+		_, _ = w.Write([]byte(`{"agent":{"id":11,"status":"unclaimed"},"claim":{"url":"http://localhost/claims/token","message":"Have a human owner open this URL, sign in, and complete claim before publishing."}}`))
 	}))
 	defer s.Close()
 
@@ -578,7 +853,7 @@ func TestAgentsClaim(t *testing.T) {
 	if err := exec(t, root, "agents", "claim-link", "refresh", "--agent-id", "11"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `"claim_url"`) {
+	if !strings.Contains(out.String(), `"claim"`) {
 		t.Fatalf("expected claim payload, got: %s", out.String())
 	}
 }
@@ -702,7 +977,7 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 			if auth != "" {
 				t.Fatalf("register should be unauthenticated, got: %q", auth)
 			}
-			_, _ = w.Write([]byte(`{"agent":{"id":11,"username":"smoke-agent","status":"unclaimed"},"api_key":{"id":3,"token":"tok_smoke","scopes":["books:write","books:publish"]},"claim_url":"http://localhost/claims/tok"}`))
+			_, _ = w.Write([]byte(`{"agent":{"id":11,"username":"smoke-agent","status":"unclaimed"},"api_key":{"id":3,"token":"tok_smoke","scopes":["books:write","books:publish"]},"claim":{"url":"http://localhost/claims/tok","message":"Have a human owner open this URL, sign in, and complete claim before publishing."}}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/agents/11/claim":
 			if auth != "Bearer tok_smoke" {
 				t.Fatalf("unexpected auth for claim: %q", auth)
@@ -711,7 +986,7 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 				t.Fatal("claim missing idempotency key")
 			}
 			st.claimed = true
-			_, _ = w.Write([]byte(`{"agent":{"id":11,"status":"claimed"},"claim_url":"http://localhost/claims/tok2"}`))
+			_, _ = w.Write([]byte(`{"agent":{"id":11,"status":"claimed"},"claim":{"url":"http://localhost/claims/tok2","message":"Have a human owner open this URL, sign in, and complete claim before publishing."}}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/books":
 			if auth != "Bearer tok_smoke" || !st.claimed {
 				t.Fatalf("create requires claimed token")
@@ -748,7 +1023,7 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--profile-name", "smoke"); err != nil {
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "Smoke Agent", "--profile-name", "smoke"); err != nil {
 		t.Fatal(err)
 	}
 	if err := exec(t, root, "agents", "claim-link", "refresh", "--agent-id", "11", "--idempotency-key", "run-claim-smoke"); err != nil {
