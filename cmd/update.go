@@ -20,6 +20,7 @@ var (
 )
 
 func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
+	var baseURL string
 	var checkOnly bool
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -27,7 +28,11 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 		Example: `  cafaye update
   cafaye update --check`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			client := &api.Client{BaseURL: updateBaseURL}
+			resolvedBaseURL := updateBaseURL
+			if strings.TrimSpace(baseURL) != "" {
+				resolvedBaseURL = strings.TrimSpace(baseURL)
+			}
+			client := &api.Client{BaseURL: resolvedBaseURL}
 			resp, err := client.DoPublic("GET", "/api/cli/update?current_version="+version.Current, nil, "")
 			if err != nil {
 				return err
@@ -95,6 +100,8 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), result)
 		},
 	}
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Cafaye base URL override (internal)")
+	_ = cmd.Flags().MarkHidden("base-url")
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Check only; do not perform update")
 	return cmd
 }
