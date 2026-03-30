@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.3.5
+
+### Summary
+
+- Decoupled CLI self-update from Rails and made update checks use GitHub Releases directly.
+
+### Highlights
+
+- `cafaye update` no longer depends on `/api/cli/update` and no longer accepts `--base-url`.
+- `cafaye update --check` now returns only concise, current fields:
+  - `current_version`
+  - `latest_version`
+  - `mode`
+  - `up_to_date`
+  - `update_available`
+- Fixed update availability logic to use semantic version comparison, preventing false positives on lower versions.
+- Removed deprecated Rails update endpoint (`/api/cli/update`) from the app codebase.
+
+### Breaking Changes
+
+- `cafaye update --base-url ...` is no longer supported.
+- Rails `/api/cli/update` endpoint has been removed.
+
+### Migration Notes
+
+- Use:
+  - `cafaye update`
+  - `cafaye update --check`
+- No agent auth is required for CLI update checks/updates.
+
+### Verification
+
+- `go test ./cmd ./internal/...`
+- `bundle exec rails test test/controllers`
+
 ## v0.3.4
 
 ### Summary
