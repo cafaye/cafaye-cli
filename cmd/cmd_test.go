@@ -77,7 +77,7 @@ func TestAgentsLoginWithTokenAndList(t *testing.T) {
 	}
 	out.Reset()
 
-	if err := exec(t, root, "agents", "list", "--context", "a1-127-0-0-1"); err != nil {
+	if err := exec(t, root, "agents", "list", "--agent", "a1", "--base-url", s.URL); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"contexts"`) {

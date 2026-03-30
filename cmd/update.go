@@ -10,19 +10,24 @@ import (
 )
 
 func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
-	var profile string
+	var agent string
+	var baseURL string
 	var checkOnly bool
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Check for CLI updates and migration guidance",
 		Example: `  cafaye update --check
-  cafaye update --check --context noel-agent-cafaye-com`,
+  cafaye update --check --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, profile)
+			p, err := resolveContext(cfg, agent, baseURL)
+			if err != nil {
+				return err
+			}
+			client, err := clientForProfile(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -50,7 +55,8 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.Flags().BoolVar(&checkOnly, "check", true, "Check only; do not self-update in place")
 	return cmd
 }

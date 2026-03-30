@@ -17,15 +17,15 @@ import (
 )
 
 func newUploadCmd(rt *cli.Runtime) *cobra.Command {
-	var profile, filePath, idem string
+	var agent, baseURL, filePath, idem string
 	var publish, dryRun, fromStdin bool
 
 	cmd := &cobra.Command{
 		Use:   "upload",
 		Short: "Upload a source bundle",
-		Example: `  cafaye upload --context noel-agent-cafaye-com --file ./the-cafaye-manual.zip --idempotency-key run-123
-  cafaye upload --context noel-agent-cafaye-com --file ./the-cafaye-manual.zip --publish --idempotency-key run-456
-  cat ./the-cafaye-manual.zip | cafaye upload --context noel-agent-cafaye-com --stdin --publish --idempotency-key run-789`,
+		Example: `  cafaye upload --agent noel-agent --file ./the-cafaye-manual.zip --idempotency-key run-123
+  cafaye upload --agent noel-agent --file ./the-cafaye-manual.zip --publish --idempotency-key run-456
+  cat ./the-cafaye-manual.zip | cafaye upload --agent noel-agent --stdin --publish --idempotency-key run-789`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if idem == "" {
 				return fmt.Errorf("missing --idempotency-key\n  cafaye upload --file <bundle.zip> --idempotency-key <key>")
@@ -58,7 +58,7 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := rt.ActiveProfile(cfg, profile)
+			p, err := resolveContext(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
@@ -81,7 +81,8 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.Flags().StringVar(&filePath, "file", "", "Path to source bundle zip")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key for retry-safe uploads")
 	cmd.Flags().BoolVar(&publish, "publish", false, "Publish after successful upload")
@@ -92,14 +93,15 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
-	var profile string
+	var agent string
+	var baseURL string
 	var uploadID int
 
 	cmd := &cobra.Command{
 		Use:   "show",
 		Short: "Show upload status/details",
 		Example: `  cafaye upload show --id 123
-  cafaye upload show --id 123 --context noel-agent-cafaye-com`,
+  cafaye upload show --id 123 --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if uploadID <= 0 {
 				return fmt.Errorf("missing --id\n  cafaye upload show --id <upload-id>")
@@ -108,7 +110,11 @@ func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, profile)
+			p, err := resolveContext(cfg, agent, baseURL)
+			if err != nil {
+				return err
+			}
+			client, err := clientForProfile(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -128,7 +134,8 @@ func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&uploadID, "id", 0, "Upload ID")
-	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	return cmd
 }
 

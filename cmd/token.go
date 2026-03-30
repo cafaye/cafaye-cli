@@ -10,20 +10,25 @@ import (
 )
 
 func newTokenCmd(rt *cli.Runtime) *cobra.Command {
-	var profile string
+	var agent string
+	var baseURL string
 	var yes bool
 	cmd := &cobra.Command{Use: "token", Short: "Manage current API token"}
 	show := &cobra.Command{
 		Use:   "show",
 		Short: "Show current API key metadata",
 		Example: `  cafaye token show
-  cafaye token show --context noel-agent-cafaye-com`,
+  cafaye token show --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, profile)
+			p, err := resolveContext(cfg, agent, baseURL)
+			if err != nil {
+				return err
+			}
+			client, err := clientForProfile(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -47,17 +52,17 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 		Use:   "rotate",
 		Short: "Rotate current context token",
 		Example: `  cafaye token rotate
-  cafaye token rotate --context noel-agent-cafaye-com`,
+  cafaye token rotate --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {
 				return err
 			}
-			p, err := rt.ActiveProfile(cfg, profile)
+			p, err := resolveContext(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, profile)
+			client, err := clientForProfile(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -82,7 +87,7 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 				return err
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "token_rotated: true")
-			fmt.Fprintf(cmd.OutOrStdout(), "profile: %s\n", p.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "context: %s\n", p.Name)
 			return nil
 		},
 	}
@@ -91,20 +96,20 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 		Use:   "revoke",
 		Short: "Revoke current context token",
 		Example: `  cafaye token revoke --yes
-  cafaye token revoke --context noel-agent-cafaye-com --yes`,
+  cafaye token revoke --agent noel-agent --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !yes {
-				return fmt.Errorf("refusing revoke without --yes\n  cafaye token revoke --yes [--context <name>]")
+				return fmt.Errorf("refusing revoke without --yes\n  cafaye token revoke --yes [--agent <username>] [--base-url <url>]")
 			}
 			cfg, err := rt.LoadConfig()
 			if err != nil {
 				return err
 			}
-			p, err := rt.ActiveProfile(cfg, profile)
+			p, err := resolveContext(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, profile)
+			client, err := clientForProfile(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -119,15 +124,18 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			_ = rt.Secrets.Delete(p.TokenRef)
 			fmt.Fprintln(cmd.OutOrStdout(), "token_revoked: true")
-			fmt.Fprintf(cmd.OutOrStdout(), "profile: %s\n", p.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "context: %s\n", p.Name)
 			return nil
 		},
 	}
 
-	rotate.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
-	revoke.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	rotate.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	rotate.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	revoke.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	revoke.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	revoke.Flags().BoolVar(&yes, "yes", false, "Confirm revocation without interactive prompt")
-	show.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	show.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	show.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 
 	cmd.AddCommand(show, rotate, revoke)
 	return cmd

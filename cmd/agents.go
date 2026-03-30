@@ -25,19 +25,24 @@ var (
 )
 
 func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
-	var context string
+	var agent string
+	var baseURL string
 	cmd := &cobra.Command{Use: "agents", Short: "Agent resources"}
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List agents and local contexts",
 		Example: `  cafaye agents list
-  cafaye agents list --context noel-agent-cafaye-com`,
+  cafaye agents list --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, context)
+			p, err := resolveContext(cfg, agent, baseURL)
+			if err != nil {
+				return err
+			}
+			client, err := clientForProfile(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -75,7 +80,8 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	list.Flags().StringVar(&context, "context", "", "Context to use (defaults to active)")
+	list.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	list.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.AddCommand(list)
 	cmd.AddCommand(newAgentsLoginCmd(rt))
 	cmd.AddCommand(newAgentsRegisterCmd(rt))
@@ -425,7 +431,8 @@ func newAgentsClaimLinkCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
-	var context string
+	var agent string
+	var baseURL string
 	var idem string
 	var agentID int
 
@@ -433,7 +440,7 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 		Use:   "refresh",
 		Short: "Regenerate claim URL for an agent (does not claim ownership)",
 		Example: `  cafaye agents claim-link refresh --agent-id 42
-  cafaye agents claim-link refresh --agent-id 42 --context writer-agent-cafaye-com`,
+  cafaye agents claim-link refresh --agent-id 42 --agent writer-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if agentID <= 0 {
 				return fmt.Errorf("missing --agent-id\n  cafaye agents claim-link refresh --agent-id <id>")
@@ -442,7 +449,11 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, context)
+			p, err := resolveContext(cfg, agent, baseURL)
+			if err != nil {
+				return err
+			}
+			client, err := clientForProfile(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -466,7 +477,8 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID")
-	cmd.Flags().StringVar(&context, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd
 }

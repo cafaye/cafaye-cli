@@ -19,19 +19,24 @@ import (
 )
 
 func newBooksCmd(rt *cli.Runtime) *cobra.Command {
-	var profile string
+	var agent string
+	var baseURL string
 	cmd := &cobra.Command{Use: "books", Short: "Book resources"}
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List books visible to current context",
 		Example: `  cafaye books list
-  cafaye books list --context noel-agent-cafaye-com`,
+  cafaye books list --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, profile)
+			p, err := resolveContext(cfg, agent, baseURL)
+			if err != nil {
+				return err
+			}
+			client, err := clientForProfile(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -50,7 +55,8 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	list.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	list.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	list.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.AddCommand(list)
 	cmd.AddCommand(newBooksCreateCmd(rt))
 	cmd.AddCommand(newBooksUpdateCmd(rt))
@@ -64,7 +70,7 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
-	var profile, title, subtitle, theme, booksDir, idem string
+	var agent, baseURL, title, subtitle, theme, booksDir, idem string
 	var skipTemplates bool
 	var everyoneAccess bool
 	cmd := &cobra.Command{
@@ -80,7 +86,11 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client, err := clientForProfile(rt, cfg, profile)
+			p, err := resolveContext(cfg, agent, baseURL)
+			if err != nil {
+				return err
+			}
+			client, err := clientForProfile(rt, cfg, p.Name)
 			if err != nil {
 				return err
 			}
@@ -174,7 +184,8 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), result)
 		},
 	}
-	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.Flags().StringVar(&title, "title", "", "Book title")
 	cmd.Flags().StringVar(&subtitle, "subtitle", "", "Book subtitle")
 	cmd.Flags().StringVar(&theme, "theme", "", "Book theme")
@@ -186,7 +197,7 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
-	var profile, title, subtitle, author, theme, idem string
+	var agent, baseURL, title, subtitle, author, theme, idem string
 	var bookID int
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -213,10 +224,11 @@ func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			if len(book) == 0 {
 				return fmt.Errorf("no updates provided\n  cafaye books update --book-id <id> --title <title>")
 			}
-			return runBookWrite(rt, cmd, profile, idem, "PATCH", fmt.Sprintf("/api/books/%d", bookID), map[string]any{"book": book}, "books update")
+			return runBookWrite(rt, cmd, agent, baseURL, idem, "PATCH", fmt.Sprintf("/api/books/%d", bookID), map[string]any{"book": book}, "books update")
 		},
 	}
-	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().StringVar(&title, "title", "", "Book title")
 	cmd.Flags().StringVar(&subtitle, "subtitle", "", "Book subtitle")
@@ -227,7 +239,7 @@ func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
-	var profile, filePath, idem string
+	var agent, baseURL, filePath, idem string
 	var bookID int
 	var remove bool
 
@@ -250,7 +262,7 @@ func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := rt.ActiveProfile(cfg, profile)
+			p, err := resolveContext(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
@@ -273,7 +285,8 @@ func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().StringVar(&filePath, "file", "", "Cover image path")
 	cmd.Flags().BoolVar(&remove, "remove", false, "Remove current cover")
@@ -282,27 +295,28 @@ func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 func newBooksRevisionsCmd(rt *cli.Runtime) *cobra.Command {
-	var profile string
+	var agent, baseURL string
 	var bookID int
 	cmd := &cobra.Command{
 		Use:   "revisions",
 		Short: "List book revisions",
 		Example: `  cafaye books revisions --book-id 42
-  cafaye books revisions --book-id 42 --context noel-agent-cafaye-com`,
+  cafaye books revisions --book-id 42 --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if bookID <= 0 {
 				return fmt.Errorf("missing --book-id\n  cafaye books revisions --book-id <id>")
 			}
-			return runBookRead(rt, cmd, profile, fmt.Sprintf("/api/books/%d/revisions", bookID), "books revisions")
+			return runBookRead(rt, cmd, agent, baseURL, fmt.Sprintf("/api/books/%d/revisions", bookID), "books revisions")
 		},
 	}
-	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	return cmd
 }
 
 func newBooksRevisionCmd(rt *cli.Runtime) *cobra.Command {
-	var profile string
+	var agent, baseURL string
 	var bookID, revisionID int
 	cmd := &cobra.Command{
 		Use:     "revision",
@@ -312,17 +326,18 @@ func newBooksRevisionCmd(rt *cli.Runtime) *cobra.Command {
 			if bookID <= 0 || revisionID <= 0 {
 				return fmt.Errorf("missing required flags\n  cafaye books revision --book-id <id> --revision-id <id>")
 			}
-			return runBookRead(rt, cmd, profile, fmt.Sprintf("/api/books/%d/revisions/%d", bookID, revisionID), "books revision")
+			return runBookRead(rt, cmd, agent, baseURL, fmt.Sprintf("/api/books/%d/revisions/%d", bookID, revisionID), "books revision")
 		},
 	}
-	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().IntVar(&revisionID, "revision-id", 0, "Revision ID")
 	return cmd
 }
 
 func newBooksPricingCmd(rt *cli.Runtime) *cobra.Command {
-	var profile, pricingType, currency, idem string
+	var agent, baseURL, pricingType, currency, idem string
 	var bookID, priceCents int
 
 	cmd := &cobra.Command{
@@ -349,10 +364,11 @@ func newBooksPricingCmd(rt *cli.Runtime) *cobra.Command {
 			if currency != "" {
 				body["book"].(map[string]any)["price_currency"] = currency
 			}
-			return runBookWrite(rt, cmd, profile, idem, "PATCH", fmt.Sprintf("/api/books/%d/pricing", bookID), body, "books pricing")
+			return runBookWrite(rt, cmd, agent, baseURL, idem, "PATCH", fmt.Sprintf("/api/books/%d/pricing", bookID), body, "books pricing")
 		},
 	}
-	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().StringVar(&pricingType, "pricing-type", "", "Pricing type (free or paid)")
 	cmd.Flags().IntVar(&priceCents, "price-cents", 0, "Price in cents")
@@ -362,7 +378,7 @@ func newBooksPricingCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 func newBooksPublishCmd(rt *cli.Runtime) *cobra.Command {
-	var profile, idem string
+	var agent, baseURL, idem string
 	var bookID, revisionID int
 
 	cmd := &cobra.Command{
@@ -374,10 +390,11 @@ func newBooksPublishCmd(rt *cli.Runtime) *cobra.Command {
 			if bookID <= 0 || revisionID <= 0 {
 				return fmt.Errorf("missing required flags\n  cafaye books publish --book-id <id> --revision-id <id>")
 			}
-			return runBookWrite(rt, cmd, profile, idem, "POST", fmt.Sprintf("/api/books/%d/publish", bookID), map[string]any{"revision_id": revisionID}, "books publish")
+			return runBookWrite(rt, cmd, agent, baseURL, idem, "POST", fmt.Sprintf("/api/books/%d/publish", bookID), map[string]any{"revision_id": revisionID}, "books publish")
 		},
 	}
-	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().IntVar(&revisionID, "revision-id", 0, "Revision ID to publish")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
@@ -385,7 +402,7 @@ func newBooksPublishCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 func newBooksUnpublishCmd(rt *cli.Runtime) *cobra.Command {
-	var profile, idem string
+	var agent, baseURL, idem string
 	var bookID int
 
 	cmd := &cobra.Command{
@@ -397,21 +414,26 @@ func newBooksUnpublishCmd(rt *cli.Runtime) *cobra.Command {
 			if bookID <= 0 {
 				return fmt.Errorf("missing --book-id\n  cafaye books unpublish --book-id <id>")
 			}
-			return runBookWrite(rt, cmd, profile, idem, "POST", fmt.Sprintf("/api/books/%d/unpublish", bookID), map[string]any{}, "books unpublish")
+			return runBookWrite(rt, cmd, agent, baseURL, idem, "POST", fmt.Sprintf("/api/books/%d/unpublish", bookID), map[string]any{}, "books unpublish")
 		},
 	}
-	cmd.Flags().StringVar(&profile, "context", "", "Context to use (defaults to active)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd
 }
 
-func runBookRead(rt *cli.Runtime, cmd *cobra.Command, profile string, path string, op string) error {
+func runBookRead(rt *cli.Runtime, cmd *cobra.Command, agent string, baseURL string, path string, op string) error {
 	cfg, err := rt.LoadConfig()
 	if err != nil {
 		return err
 	}
-	client, err := clientForProfile(rt, cfg, profile)
+	p, err := resolveContext(cfg, agent, baseURL)
+	if err != nil {
+		return err
+	}
+	client, err := clientForProfile(rt, cfg, p.Name)
 	if err != nil {
 		return err
 	}
@@ -430,12 +452,16 @@ func runBookRead(rt *cli.Runtime, cmd *cobra.Command, profile string, path strin
 	return printJSON(cmd.OutOrStdout(), payload)
 }
 
-func runBookWrite(rt *cli.Runtime, cmd *cobra.Command, profile string, idem string, method string, path string, body map[string]any, op string) error {
+func runBookWrite(rt *cli.Runtime, cmd *cobra.Command, agent string, baseURL string, idem string, method string, path string, body map[string]any, op string) error {
 	cfg, err := rt.LoadConfig()
 	if err != nil {
 		return err
 	}
-	client, err := clientForProfile(rt, cfg, profile)
+	p, err := resolveContext(cfg, agent, baseURL)
+	if err != nil {
+		return err
+	}
+	client, err := clientForProfile(rt, cfg, p.Name)
 	if err != nil {
 		return err
 	}
