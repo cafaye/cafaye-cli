@@ -40,7 +40,8 @@ jobs:
           set -euo pipefail
           brew tap-new cafaye/local
           TAP_DIR="$(brew --repository)/Library/Taps/cafaye/homebrew-local"
-          cp ./Formula/cafaye.rb "${TAP_DIR}/Formula/cafaye.rb"
+          curl -fsSL https://raw.githubusercontent.com/cafaye/homebrew-cafaye-cli/master/Formula/cafaye.rb \
+            -o "${TAP_DIR}/Formula/cafaye.rb"
           brew install cafaye/local/cafaye
           cafaye --help >/dev/null
           brew uninstall cafaye/local/cafaye

@@ -215,6 +215,12 @@ cleo release publish --version v0.3.0 --final --summary "..." --highlights "..."
 cleo release verify --version v0.3.0
 ```
 
+Homebrew formula ownership:
+
+- Tap repo: `cafaye/homebrew-cafaye-cli`
+- `cafaye/cafaye-cli` does not store `Formula/cafaye.rb`
+- After each CLI release, update the tap formula URL/SHA to the new tag
+
 ## Security
 
 - Store tokens in OS keyring when available.

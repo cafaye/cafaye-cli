@@ -14,7 +14,7 @@ if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
 fi
 
 REPO="cafaye/cafaye-cli"
-FORMULA_PATH="Formula/cafaye.rb"
+FORMULA_PATH="${FORMULA_PATH:-Formula/cafaye.rb}"
 URL="https://github.com/${REPO}/archive/refs/tags/${VERSION}.tar.gz"
 
 if ! command -v curl >/dev/null 2>&1; then
@@ -33,6 +33,7 @@ fi
 
 if [[ ! -f "$FORMULA_PATH" ]]; then
   echo "formula not found: $FORMULA_PATH" >&2
+  echo "tip: formula source-of-truth is in cafaye/homebrew-cafaye-cli" >&2
   exit 1
 fi
 
