@@ -185,7 +185,10 @@ func TestUpdateFallbackWhenEndpointUnavailable(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "update", "--check", "--base-url", s.URL); err != nil {
+	prev := updateBaseURL
+	updateBaseURL = s.URL
+	defer func() { updateBaseURL = prev }()
+	if err := exec(t, root, "update", "--check"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "update_endpoint: unavailable") {
@@ -338,18 +341,31 @@ func TestBooksCreateSupportsSkipTemplates(t *testing.T) {
 func TestUpdateReturnsServerPayload(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"latest": "0.2.0", "deprecated_commands": []string{"oldcmd"}})
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"latest_version":            "9.9.9",
+			"minimum_supported_version": "0.3.0",
+			"deprecated_commands":       []string{"oldcmd"},
+		})
 	}))
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "update", "--check", "--base-url", s.URL); err != nil {
+	prev := updateBaseURL
+	updateBaseURL = s.URL
+	defer func() { updateBaseURL = prev }()
+	if err := exec(t, root, "update", "--check"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "deprecated_commands") {
-		t.Fatalf("expected deprecation metadata in output, got: %s", out.String())
+	if !strings.Contains(out.String(), `"latest_version": "9.9.9"`) {
+		t.Fatalf("expected latest_version in output, got: %s", out.String())
+	}
+	if !strings.Contains(out.String(), `"update_available": true`) {
+		t.Fatalf("expected update_available in output, got: %s", out.String())
+	}
+	if strings.Contains(out.String(), "deprecated_commands") {
+		t.Fatalf("expected stale fields to be omitted, got: %s", out.String())
 	}
 }
 
