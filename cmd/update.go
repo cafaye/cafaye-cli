@@ -4,34 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cafaye/cafaye-cli/internal/api"
 	"github.com/cafaye/cafaye-cli/internal/cli"
 	"github.com/cafaye/cafaye-cli/internal/version"
 	"github.com/spf13/cobra"
 )
 
 func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
-	var agent string
 	var baseURL string
 	var checkOnly bool
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Check for CLI updates and migration guidance",
 		Example: `  cafaye update --check
-  cafaye update --check --agent noel-agent`,
+  cafaye update --check --base-url https://cafaye.com`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := rt.LoadConfig()
-			if err != nil {
-				return err
+			resolvedBaseURL := baseURL
+			if resolvedBaseURL == "" {
+				resolvedBaseURL = defaultRegisterBaseURL
 			}
-			currSession, err := resolveAgentSession(cfg, agent, baseURL)
-			if err != nil {
-				return err
-			}
-			client, err := clientForAgentSession(rt, cfg, currSession.Name)
-			if err != nil {
-				return err
-			}
-			resp, err := client.Do("GET", "/api/cli/update?current_version="+version.Current, nil, "")
+			client := &api.Client{BaseURL: resolvedBaseURL}
+			resp, err := client.DoPublic("GET", "/api/cli/update?current_version="+version.Current, nil, "")
 			if err != nil {
 				return err
 			}
@@ -55,8 +48,7 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Cafaye base URL (defaults to https://cafaye.com)")
 	cmd.Flags().BoolVar(&checkOnly, "check", true, "Check only; do not self-update in place")
 	return cmd
 }

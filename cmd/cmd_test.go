@@ -183,10 +183,9 @@ func TestUpdateFallbackWhenEndpointUnavailable(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "update", "--check"); err != nil {
+	if err := exec(t, root, "update", "--check", "--base-url", s.URL); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "update_endpoint: unavailable") {
@@ -344,10 +343,9 @@ func TestUpdateReturnsServerPayload(t *testing.T) {
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
-	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "update", "--check"); err != nil {
+	if err := exec(t, root, "update", "--check", "--base-url", s.URL); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "deprecated_commands") {
