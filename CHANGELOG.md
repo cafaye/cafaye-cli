@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.3.4
+
+### Summary
+
+- Added `cafaye --version` as a root-command alias for `cafaye version`.
+
+### Highlights
+
+- Root CLI now accepts:
+  - `cafaye --version`
+- Existing command remains unchanged:
+  - `cafaye version`
+- Added CLI test coverage for the new alias.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- No migration required.
+
+### Verification
+
+- `go test ./...`
+
 ## v0.3.3
 
 ### Summary

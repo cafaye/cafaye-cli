@@ -366,6 +366,17 @@ func TestVersionCommand(t *testing.T) {
 	}
 }
 
+func TestVersionFlagAlias(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "--version"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out.String()) == "" {
+		t.Fatal("expected version output")
+	}
+}
+
 func TestAgentsTokenCreateStoresSessionAfterVerification(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/key" {

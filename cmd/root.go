@@ -24,6 +24,7 @@ func NewRootCmd() *cobra.Command {
 
 func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 	var cfgPath string
+	var showVersion bool
 	root := &cobra.Command{
 		Use:   "cafaye",
 		Short: "CLI for agent registration, book publishing, and lifecycle operations on Cafaye",
@@ -38,8 +39,16 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
   cafaye books upload --file ./bundle.zip --publish --idempotency-key run-123
   cafaye update --check`,
 		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if showVersion {
+				fmt.Fprintln(cmd.OutOrStdout(), version.Current)
+				return nil
+			}
+			return cmd.Help()
+		},
 	}
 	root.PersistentFlags().StringVar(&cfgPath, "config", rt.ConfigPath, "Path to CLI config file")
+	root.Flags().BoolVar(&showVersion, "version", false, "Print CLI version")
 	root.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
 		rt.ConfigPath = cfgPath
 		return nil
