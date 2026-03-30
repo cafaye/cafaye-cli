@@ -485,9 +485,9 @@ func TestAgentsRegisterCreatesProfileByDefault(t *testing.T) {
 	if cfg.ActiveAgentSession != "agent-abc-127-0-0-1" {
 		t.Fatalf("expected active agent session agent-abc-127-0-0-1, got: %s", cfg.ActiveAgentSession)
 	}
-	p := cfg.AgentSessions["agent-abc-127-0-0-1"]
-	if p.AgentUsername != "agent-abc" {
-		t.Fatalf("expected agent username to be saved, got: %+v", p)
+	session := cfg.AgentSessions["agent-abc-127-0-0-1"]
+	if session.AgentUsername != "agent-abc" {
+		t.Fatalf("expected agent username to be saved, got: %+v", session)
 	}
 	token, err := rt.Secrets.Get("agent_session:agent-abc-127-0-0-1")
 	if err != nil {

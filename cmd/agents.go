@@ -38,11 +38,11 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveAgentSession(cfg, agent, baseURL)
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForAgentSession(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, currSession.Name)
 			if err != nil {
 				return err
 			}
@@ -213,14 +213,14 @@ func agentSessionNameForAgentAndBaseURL(agentUsername string, baseURL string) st
 
 func findAgentSessions(cfg config.File, agentUsername string, baseURL string) []config.AgentSession {
 	matches := make([]config.AgentSession, 0)
-	for _, p := range cfg.AgentSessions {
-		if strings.TrimSpace(agentUsername) != "" && p.AgentUsername != strings.TrimSpace(agentUsername) {
+	for _, session := range cfg.AgentSessions {
+		if strings.TrimSpace(agentUsername) != "" && session.AgentUsername != strings.TrimSpace(agentUsername) {
 			continue
 		}
-		if strings.TrimSpace(baseURL) != "" && p.BaseURL != strings.TrimSpace(baseURL) {
+		if strings.TrimSpace(baseURL) != "" && session.BaseURL != strings.TrimSpace(baseURL) {
 			continue
 		}
-		matches = append(matches, p)
+		matches = append(matches, session)
 	}
 	sort.Slice(matches, func(i, j int) bool { return matches[i].Name < matches[j].Name })
 	return matches
@@ -228,11 +228,11 @@ func findAgentSessions(cfg config.File, agentUsername string, baseURL string) []
 
 func buildAgentSessions(cfg config.File) []map[string]any {
 	agentSessions := make([]map[string]any, 0, len(cfg.AgentSessions))
-	for name, p := range cfg.AgentSessions {
+	for name, session := range cfg.AgentSessions {
 		agentSessions = append(agentSessions, map[string]any{
-			"name":           p.Name,
-			"agent_username": p.AgentUsername,
-			"base_url":       p.BaseURL,
+			"name":           session.Name,
+			"agent_username": session.AgentUsername,
+			"base_url":       session.BaseURL,
 			"active":         name == cfg.ActiveAgentSession,
 		})
 	}
@@ -449,11 +449,11 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveAgentSession(cfg, agent, baseURL)
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForAgentSession(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, currSession.Name)
 			if err != nil {
 				return err
 			}

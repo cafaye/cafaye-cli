@@ -24,11 +24,11 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveAgentSession(cfg, agent, baseURL)
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForAgentSession(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, currSession.Name)
 			if err != nil {
 				return err
 			}
@@ -58,11 +58,11 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveAgentSession(cfg, agent, baseURL)
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForAgentSession(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, currSession.Name)
 			if err != nil {
 				return err
 			}
@@ -83,11 +83,11 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 			if newToken == "" {
 				return fmt.Errorf("rotate response did not include token")
 			}
-			if err := rt.Secrets.Set(p.TokenRef, newToken); err != nil {
+			if err := rt.Secrets.Set(currSession.TokenRef, newToken); err != nil {
 				return err
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "token_rotated: true")
-			fmt.Fprintf(cmd.OutOrStdout(), "agent_session: %s\n", p.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "agent_session: %s\n", currSession.Name)
 			return nil
 		},
 	}
@@ -105,11 +105,11 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveAgentSession(cfg, agent, baseURL)
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForAgentSession(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, currSession.Name)
 			if err != nil {
 				return err
 			}
@@ -122,9 +122,9 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 			if resp.StatusCode >= 300 {
 				return apiError("token revoke", resp.StatusCode, resp.Body)
 			}
-			_ = rt.Secrets.Delete(p.TokenRef)
+			_ = rt.Secrets.Delete(currSession.TokenRef)
 			fmt.Fprintln(cmd.OutOrStdout(), "token_revoked: true")
-			fmt.Fprintf(cmd.OutOrStdout(), "agent_session: %s\n", p.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "agent_session: %s\n", currSession.Name)
 			return nil
 		},
 	}

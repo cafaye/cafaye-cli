@@ -13,15 +13,15 @@ import (
 )
 
 func clientForAgentSession(rt *cli.Runtime, cfg config.File, agentSessionName string) (*api.Client, error) {
-	p, err := rt.ActiveAgentSession(cfg, agentSessionName)
+	session, err := rt.ActiveAgentSession(cfg, agentSessionName)
 	if err != nil {
 		return nil, err
 	}
-	token, err := rt.Secrets.Get(p.TokenRef)
+	token, err := rt.Secrets.Get(session.TokenRef)
 	if err != nil {
-		return nil, fmt.Errorf("token for agent session %q not available: %w", p.Name, err)
+		return nil, fmt.Errorf("token for agent session %q not available: %w", session.Name, err)
 	}
-	return &api.Client{BaseURL: p.BaseURL, Token: token}, nil
+	return &api.Client{BaseURL: session.BaseURL, Token: token}, nil
 }
 
 func resolveAgentSession(cfg config.File, agentSelector string, baseURLSelector string) (config.AgentSession, error) {
@@ -33,22 +33,22 @@ func resolveAgentSession(cfg config.File, agentSelector string, baseURLSelector 
 		if name == "" {
 			return config.AgentSession{}, fmt.Errorf("no active agent session set; run: cafaye agents login --agent <username> --base-url <url> --token <token>")
 		}
-		p, ok := cfg.AgentSessions[name]
+		session, ok := cfg.AgentSessions[name]
 		if !ok {
 			return config.AgentSession{}, fmt.Errorf("agent session %q not found", name)
 		}
-		return p, nil
+		return session, nil
 	}
 
 	matches := make([]config.AgentSession, 0)
-	for _, p := range cfg.AgentSessions {
-		if p.AgentUsername != agentSelector {
+	for _, session := range cfg.AgentSessions {
+		if session.AgentUsername != agentSelector {
 			continue
 		}
-		if baseURLSelector != "" && p.BaseURL != baseURLSelector {
+		if baseURLSelector != "" && session.BaseURL != baseURLSelector {
 			continue
 		}
-		matches = append(matches, p)
+		matches = append(matches, session)
 	}
 	sort.Slice(matches, func(i, j int) bool { return matches[i].Name < matches[j].Name })
 

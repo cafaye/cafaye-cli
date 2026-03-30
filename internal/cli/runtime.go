@@ -33,11 +33,11 @@ func (r *Runtime) ActiveAgentSession(cfg config.File, explicit string) (config.A
 	if name == "" {
 		return config.AgentSession{}, fmt.Errorf("no active agent session set; run: cafaye agents login --agent <username> --base-url <url> --token <token>")
 	}
-	p, ok := cfg.AgentSessions[name]
+	session, ok := cfg.AgentSessions[name]
 	if !ok {
 		return config.AgentSession{}, fmt.Errorf("agent session %q not found", name)
 	}
-	return p, nil
+	return session, nil
 }
 
 func PrintDeprecation(w io.Writer, n api.DeprecationNotice) {

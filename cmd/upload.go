@@ -58,15 +58,15 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveAgentSession(cfg, agent, baseURL)
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			token, err := rt.Secrets.Get(p.TokenRef)
+			token, err := rt.Secrets.Get(currSession.TokenRef)
 			if err != nil {
 				return err
 			}
-			resp, err := uploadFile(p.BaseURL, token, filePath, publish, idem)
+			resp, err := uploadFile(currSession.BaseURL, token, filePath, publish, idem)
 			if err != nil {
 				return err
 			}
@@ -110,11 +110,11 @@ func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveAgentSession(cfg, agent, baseURL)
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForAgentSession(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, currSession.Name)
 			if err != nil {
 				return err
 			}

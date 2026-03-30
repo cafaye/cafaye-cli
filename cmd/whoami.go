@@ -21,11 +21,11 @@ func newWhoAmICmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveAgentSession(cfg, agent, baseURL)
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForAgentSession(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, currSession.Name)
 			if err != nil {
 				return err
 			}

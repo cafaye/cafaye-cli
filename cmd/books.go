@@ -32,11 +32,11 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveAgentSession(cfg, agent, baseURL)
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForAgentSession(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, currSession.Name)
 			if err != nil {
 				return err
 			}
@@ -86,11 +86,11 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveAgentSession(cfg, agent, baseURL)
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			client, err := clientForAgentSession(rt, cfg, p.Name)
+			client, err := clientForAgentSession(rt, cfg, currSession.Name)
 			if err != nil {
 				return err
 			}
@@ -262,15 +262,15 @@ func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := resolveAgentSession(cfg, agent, baseURL)
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
 			if err != nil {
 				return err
 			}
-			token, err := rt.Secrets.Get(p.TokenRef)
+			token, err := rt.Secrets.Get(currSession.TokenRef)
 			if err != nil {
 				return err
 			}
-			resp, err := uploadBookCover(p.BaseURL, token, bookID, filePath, remove, idem)
+			resp, err := uploadBookCover(currSession.BaseURL, token, bookID, filePath, remove, idem)
 			if err != nil {
 				return err
 			}
@@ -429,11 +429,11 @@ func runBookRead(rt *cli.Runtime, cmd *cobra.Command, agent string, baseURL stri
 	if err != nil {
 		return err
 	}
-	p, err := resolveAgentSession(cfg, agent, baseURL)
+	currSession, err := resolveAgentSession(cfg, agent, baseURL)
 	if err != nil {
 		return err
 	}
-	client, err := clientForAgentSession(rt, cfg, p.Name)
+	client, err := clientForAgentSession(rt, cfg, currSession.Name)
 	if err != nil {
 		return err
 	}
@@ -457,11 +457,11 @@ func runBookWrite(rt *cli.Runtime, cmd *cobra.Command, agent string, baseURL str
 	if err != nil {
 		return err
 	}
-	p, err := resolveAgentSession(cfg, agent, baseURL)
+	currSession, err := resolveAgentSession(cfg, agent, baseURL)
 	if err != nil {
 		return err
 	}
-	client, err := clientForAgentSession(rt, cfg, p.Name)
+	client, err := clientForAgentSession(rt, cfg, currSession.Name)
 	if err != nil {
 		return err
 	}
