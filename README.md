@@ -215,10 +215,15 @@ cleo release publish --version v0.3.0 --final --summary "..." --highlights "..."
 cleo release verify --version v0.3.0
 ```
 
-Automated release on `master`:
+Release trigger model:
 
-- Every push to `master` auto-bumps patch version, updates changelog, creates a tag, and publishes a GitHub release.
-- Release workflow then updates Homebrew tap formula automatically.
+- Releases are intentional, not every `master` push.
+- Before releasing:
+  - bump `internal/version/version.go`
+  - add/update release notes in `CHANGELOG.md`
+  - commit and push to `master`
+- Then cut/publish a tagged release (for example `v0.3.6`) using Cleo commands above.
+- Tag-triggered GitHub Action (`release.yml`) publishes assets and updates the Homebrew tap formula automatically.
 - Required repo secret for tap updates:
   - `HOMEBREW_TAP_PUSH_TOKEN` (token with push access to `cafaye/homebrew-cafaye-cli`)
 

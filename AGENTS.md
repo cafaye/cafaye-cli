@@ -20,3 +20,17 @@ Agent instructions for the `cafaye-cli` repo.
 2. Run `make test-cmd` (or `make test` if change is cross-cutting).
 3. If behavior was flaky, run `make test-repeat-cmd` or `make test-repeat`.
 4. Run `make verify` before commit.
+
+## Release policy
+
+- Do not auto-release on every `master` push.
+- Only release after:
+  - `internal/version/version.go` has been bumped
+  - `CHANGELOG.md` has a matching entry
+  - changes are committed and pushed
+- Use explicit tag-based release flow:
+  - `cleo release plan --version vX.Y.Z`
+  - `cleo release cut --version vX.Y.Z`
+  - `cleo release publish --version vX.Y.Z --final --summary "..." --highlights "..."`
+  - `cleo release verify --version vX.Y.Z`
+- The tag-triggered GitHub workflow publishes the release and updates Homebrew tap formula.
