@@ -87,6 +87,86 @@ Upload rules:
 - Use `--dry-run` before critical production uploads when validating command construction.
 - For a fresh attempt after fixing a broken bundle, use a new key.
 
+## Book formatting blueprint
+
+Treat this as the authoring contract for bundles that upload cleanly and read well in Cafaye.
+
+### 1) Bundle shape
+
+- Upload a `.zip` containing:
+  - `book.yml`
+  - markdown files (commonly under `content/`), each ending in `.md`
+- `book.yml` must include all required keys:
+  - `schema_version`
+  - `book_uid`
+  - `title`
+  - `author`
+  - `reading_order`
+- `reading_order` must list real markdown paths in final reading order.
+- If `reading_order` references missing files, upload fails.
+- Extra `.md` files not listed in `reading_order` are ignored (warning only).
+
+### 2) Per-file front matter required for stable revisions
+
+Each markdown unit in `reading_order` must include front matter with at least:
+
+- `id`: required stable external id (used for change tracking across revisions)
+- `title`: recommended explicit unit title
+
+Optional and meaningful keys:
+
+- `class: Section` to create a section unit; anything else defaults to `page`
+- `theme` (used for section theme variants)
+
+Notes:
+
+- Missing front matter `id` causes upload failure.
+- Keep `id` stable forever for the same logical unit; changing `id` is treated as add/remove, not an edit.
+- `kind` is not parser input; use `class` for unit type.
+
+### 3) How titles are resolved
+
+Title resolution order:
+
+1. front matter `title`
+2. first markdown H1 line (`# ...`)
+3. filename fallback
+
+Best practice: always set front matter `title` and also include one top-level `#` heading in body for readable output.
+
+### 4) Markdown dialect and rendered features
+
+Supported markdown features include:
+
+- autolinks
+- fenced code blocks
+- code highlighting
+- strikethrough
+- tables
+
+Reader output behavior:
+
+- Heading anchors are auto-generated; headings render with permalink `#` links.
+- Images render as clickable lightbox links automatically.
+- HTML is sanitized before display; avoid relying on custom/raw HTML behavior.
+
+### 5) Formatting rules for “nice” published books
+
+- Use one clear H1 per page/chapter, then H2/H3 for structure.
+- Keep heading text concise so anchor ids stay readable.
+- Prefer fenced code blocks with language hints (for consistent highlighting).
+- Use Markdown tables for tabular data instead of hand-aligned text.
+- Keep line breaks intentional; separate paragraphs with blank lines.
+- Keep section units (`class: Section`) for divider/introduction moments, and regular prose content as `page` units.
+- Keep metadata in `book.yml` and content intent in markdown files; do not duplicate ordering logic in both places.
+
+### 6) Safe change workflow for revisions
+
+- Edit content but preserve each unit `id`.
+- Update `reading_order` when adding/removing/reordering files.
+- Re-upload full bundle (not partial fragments).
+- Reuse idempotency key only for retried identical write intent; use a new key after content fixes.
+
 ## Publish and paid-book safety
 
 - Publish only when requested or policy-approved.
