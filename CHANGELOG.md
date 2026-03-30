@@ -1,5 +1,43 @@
 # Changelog
 
+## v0.3.7
+
+### Summary
+
+- Improved `cafaye update` UX to default to human-readable progress output, with optional JSON mode for automation.
+
+### Highlights
+
+- `cafaye update` and `cafaye update --check` now print friendly terminal lines by default:
+  - "Checking latest release..."
+  - current/latest version lines
+  - update status text
+- Added explicit machine mode:
+  - `cafaye update --json`
+  - `cafaye update --check --json`
+- Updated README and bundled Cafaye `SKILL.md` diagnostics guidance to document default human mode and optional JSON mode.
+- Added CLI tests for:
+  - default human-readable update-check output
+  - up-to-date human output
+  - brew-update success messaging
+  - JSON check output mode
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- For normal terminal use, run `cafaye update` (no flags).
+- If your scripts parse JSON output, pass `--json` explicitly.
+
+### Verification
+
+- `go test ./...`
+- Manual:
+  - `go run . update --check`
+  - `go run . update --check --json`
+
 ## v0.3.6
 
 ### Summary
