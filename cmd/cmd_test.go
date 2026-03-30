@@ -51,7 +51,7 @@ func seedAgentSession(t *testing.T, rt *cli.Runtime, name string, baseURL string
 	}
 }
 
-func TestAgentsLoginWithTokenAndList(t *testing.T) {
+func TestAgentsTokenCreateAndList(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
@@ -69,11 +69,11 @@ func TestAgentsLoginWithTokenAndList(t *testing.T) {
 	}))
 	defer s.Close()
 
-	if err := exec(t, root, "agents", "login", "--agent", "a1", "--base-url", s.URL, "--token", "tok"); err != nil {
+	if err := exec(t, root, "agents", "token", "create", "--agent", "a1", "--base-url", s.URL, "--token", "tok"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "login_ok: a1-127-0-0-1") {
-		t.Fatalf("expected login output, got: %s", out.String())
+	if !strings.Contains(out.String(), "token_created: true") {
+		t.Fatalf("expected token create output, got: %s", out.String())
 	}
 	out.Reset()
 
@@ -85,7 +85,7 @@ func TestAgentsLoginWithTokenAndList(t *testing.T) {
 	}
 }
 
-func TestAgentsLoginWithoutTokenAndNoContextFails(t *testing.T) {
+func TestAgentsLoginWithoutSavedSessionFails(t *testing.T) {
 	rt, _, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
@@ -93,7 +93,7 @@ func TestAgentsLoginWithoutTokenAndNoContextFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "no saved agent session matches") {
+	if !strings.Contains(err.Error(), "agents token create") {
 		t.Fatalf("expected agent session selection error, got: %v", err)
 	}
 }
@@ -342,7 +342,7 @@ func TestVersionCommand(t *testing.T) {
 	}
 }
 
-func TestAgentsLoginStoresContextAfterVerification(t *testing.T) {
+func TestAgentsTokenCreateStoresSessionAfterVerification(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/agents/home" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -354,12 +354,12 @@ func TestAgentsLoginStoresContextAfterVerification(t *testing.T) {
 
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
-	err := exec(t, root, "agents", "login", "--base-url", s.URL, "--agent", "noel-agent", "--token", "tok")
+	err := exec(t, root, "agents", "token", "create", "--base-url", s.URL, "--agent", "noel-agent", "--token", "tok")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "login_ok: noel-agent-127-0-0-1") {
-		t.Fatalf("expected login output, got: %s", out.String())
+	if !strings.Contains(out.String(), "token_created: true") {
+		t.Fatalf("expected token create output, got: %s", out.String())
 	}
 }
 
@@ -384,7 +384,7 @@ func TestAgentsLoginSwitchesExistingContextByAgentUsername(t *testing.T) {
 	}
 }
 
-func TestAgentsLoginSwitchRequiresAdditionalSelectorWhenMultipleContextsMatch(t *testing.T) {
+func TestAgentsLoginSwitchRequiresAdditionalSelectorWhenMultipleAgentSessionsMatch(t *testing.T) {
 	rt, _, _, _ := testRuntime(t)
 	cfg := config.File{
 		ActiveAgentSession: "p1",
@@ -406,7 +406,7 @@ func TestAgentsLoginSwitchRequiresAdditionalSelectorWhenMultipleContextsMatch(t 
 	}
 }
 
-func TestAgentsLoginCanSelectContextByAgentAndBaseURL(t *testing.T) {
+func TestAgentsLoginCanSelectAgentSessionByAgentAndBaseURL(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	cfg := config.File{
 		ActiveAgentSession: "p1",
@@ -427,7 +427,7 @@ func TestAgentsLoginCanSelectContextByAgentAndBaseURL(t *testing.T) {
 	}
 }
 
-func TestAgentsListFallsBackToLocalContextsForUnclaimedAgent(t *testing.T) {
+func TestAgentsListFallsBackToLocalAgentSessionsForUnclaimedAgent(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
@@ -501,7 +501,7 @@ func TestAgentsRegisterCreatesProfileByDefault(t *testing.T) {
 	}
 }
 
-func TestAgentsRegisterNoSaveDoesNotPersistProfile(t *testing.T) {
+func TestAgentsRegisterNoSaveDoesNotPersistAgentSession(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"agent-abc"},"api_key":{"id":2,"token":"tok_new"}}`))
@@ -519,7 +519,7 @@ func TestAgentsRegisterNoSaveDoesNotPersistProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.ActiveAgentSession != "" || len(cfg.AgentSessions) != 0 {
-		t.Fatalf("expected no saved profile, got: %+v", cfg)
+		t.Fatalf("expected no saved agent session, got: %+v", cfg)
 	}
 }
 
@@ -721,17 +721,17 @@ func TestAgentsRegisterDoesNotSwitchActiveWhenAlreadyLoggedIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.ActiveAgentSession != "existing" {
-		t.Fatalf("expected active profile to remain existing, got: %s", cfg.ActiveAgentSession)
+		t.Fatalf("expected active agent session to remain existing, got: %s", cfg.ActiveAgentSession)
 	}
 	if _, ok := cfg.AgentSessions["new-agent-127-0-0-1"]; !ok {
-		t.Fatalf("expected new profile for new-agent, got: %+v", cfg.AgentSessions)
+		t.Fatalf("expected new agent session for new-agent, got: %+v", cfg.AgentSessions)
 	}
 	if !strings.Contains(errOut.String(), "logged_in: false") {
 		t.Fatalf("expected non-login summary, got: %s", errOut.String())
 	}
 }
 
-func TestAgentsRegisterSwitchesActiveWhenCurrentProfileUnauthorized(t *testing.T) {
+func TestAgentsRegisterSwitchesActiveWhenCurrentAgentSessionUnauthorized(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -811,7 +811,7 @@ func TestTokenRotateUpdatesStoredSecret(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	seedAgentSession(t, rt, "p1", s.URL, "old-token")
 	root := NewRootCmdWithRuntime(rt)
-	if err := exec(t, root, "token", "rotate"); err != nil {
+	if err := exec(t, root, "agents", "token", "rotate"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "token_rotated: true") {
@@ -829,7 +829,7 @@ func TestTokenRotateUpdatesStoredSecret(t *testing.T) {
 func TestTokenRevokeRequiresYes(t *testing.T) {
 	rt, _, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
-	err := exec(t, root, "token", "revoke")
+	err := exec(t, root, "agents", "token", "revoke")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -957,7 +957,7 @@ func TestTokenShow(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
-	if err := exec(t, root, "token", "show"); err != nil {
+	if err := exec(t, root, "agents", "token", "show"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"api_key"`) {

@@ -28,7 +28,7 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 		Use:   "cafaye",
 		Short: "Cafaye CLI for agent-first publishing workflows",
 		Long:  "Non-interactive CLI for agents and operators using Cafaye.\nAll required input can be passed via flags or stdin.",
-		Example: `  cafaye agents login --agent noel-agent --base-url https://cafaye.example.com --token $CAFAYE_API_TOKEN
+		Example: `  cafaye agents token create --agent noel-agent --base-url https://cafaye.example.com --token $CAFAYE_API_TOKEN
   cafaye agents login --agent noel-agent
   cafaye whoami
   cafaye agents list
@@ -50,7 +50,6 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 	root.AddCommand(newAgentsCmd(rt))
 	root.AddCommand(newBooksCmd(rt))
 	root.AddCommand(newUploadCmd(rt))
-	root.AddCommand(newTokenCmd(rt))
 	root.AddCommand(newUpdateCmd(rt))
 	root.AddCommand(newSkillsCmd())
 

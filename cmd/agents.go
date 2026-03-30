@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"os"
 	osExec "os/exec"
 	"runtime"
 	"sort"
@@ -84,6 +83,7 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 	list.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.AddCommand(list)
 	cmd.AddCommand(newAgentsLoginCmd(rt))
+	cmd.AddCommand(newAgentsTokenCmd(rt))
 	cmd.AddCommand(newAgentsRegisterCmd(rt))
 	cmd.AddCommand(newAgentsClaimLinkCmd(rt))
 	return cmd
@@ -92,33 +92,24 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 func newAgentsLoginCmd(rt *cli.Runtime) *cobra.Command {
 	var agentUsername string
 	var baseURL string
-	var token string
 
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Create or switch local agent session",
-		Example: `  cafaye agents login --agent noel-agent --base-url https://cafaye.example.com --token $CAFAYE_API_TOKEN
-  cafaye agents login --agent noel-agent --base-url https://staging.cafaye.example.com --token $STAGING_TOKEN
+		Short: "Switch active local agent session",
+		Example: `  cafaye agents login --agent noel-agent --base-url https://cafaye.example.com
+  cafaye agents login --agent noel-agent --base-url https://staging.cafaye.example.com
   cafaye agents login --agent noel-agent --base-url https://cafaye.example.com`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := rt.LoadConfig()
 			if err != nil {
 				return err
 			}
-			token = strings.TrimSpace(token)
-			if token == "" {
-				token = strings.TrimSpace(os.Getenv("CAFAYE_API_TOKEN"))
-			}
-			if token == "" {
-				return switchExistingAgentSession(rt, cfg, agentUsername, baseURL, cmd)
-			}
-			return loginAndSaveAgentSession(rt, cfg, agentUsername, baseURL, token, cmd)
+			return switchExistingAgentSession(rt, cfg, agentUsername, baseURL, cmd)
 		},
 	}
 
 	cmd.Flags().StringVar(&agentUsername, "agent", "", "Agent username")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Cafaye base URL (defaults to https://cafaye.com when --token is provided)")
-	cmd.Flags().StringVar(&token, "token", "", "Agent API token (falls back to CAFAYE_API_TOKEN)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	return cmd
 }
 
@@ -127,7 +118,7 @@ func switchExistingAgentSession(rt *cli.Runtime, cfg config.File, agentUsername 
 	baseURL = strings.TrimSpace(baseURL)
 	matches := findAgentSessions(cfg, agentUsername, baseURL)
 	if len(matches) == 0 {
-		return fmt.Errorf("no saved agent session matches provided selectors; provide --token to create one")
+		return fmt.Errorf("no saved agent session matches provided selectors; run `cafaye agents token create --agent <username> --base-url <url> --token <token>`")
 	}
 	if len(matches) > 1 {
 		return fmt.Errorf("multiple agent sessions match; specify additional identifying info like --base-url")
@@ -139,64 +130,6 @@ func switchExistingAgentSession(rt *cli.Runtime, cfg config.File, agentUsername 
 	fmt.Fprintf(cmd.OutOrStdout(), "login_ok: %s\n", matches[0].Name)
 	fmt.Fprintf(cmd.OutOrStdout(), "active_agent_session: %s\n", matches[0].Name)
 	fmt.Fprintf(cmd.OutOrStdout(), "agent: %s\n", matches[0].AgentUsername)
-	return nil
-}
-
-func loginAndSaveAgentSession(rt *cli.Runtime, cfg config.File, agentUsername string, baseURL string, token string, cmd *cobra.Command) error {
-	baseURL = strings.TrimSpace(baseURL)
-	if baseURL == "" {
-		baseURL = defaultRegisterBaseURL
-	}
-
-	client := &api.Client{BaseURL: baseURL, Token: token}
-	resp, err := client.Do("GET", "/agents/home", nil, "")
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode >= 300 {
-		return apiError("login verification", resp.StatusCode, resp.Body)
-	}
-	cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
-	var payload map[string]any
-	if err := json.Unmarshal(resp.Body, &payload); err != nil {
-		return err
-	}
-
-	resolvedAgent := strings.TrimSpace(agentUsername)
-	if resolvedAgent == "" {
-		if agentMap, ok := payload["agent"].(map[string]any); ok {
-			resolvedAgent, _ = agentMap["username"].(string)
-			resolvedAgent = strings.TrimSpace(resolvedAgent)
-		}
-	}
-	if resolvedAgent == "" {
-		return fmt.Errorf("missing --agent and unable to infer agent username from server response")
-	}
-
-	if cfg.AgentSessions == nil {
-		cfg.AgentSessions = map[string]config.AgentSession{}
-	}
-
-	agentSessionName := agentSessionNameForAgentAndBaseURL(resolvedAgent, baseURL)
-	ref := "agent_session:" + agentSessionName
-	if err := rt.Secrets.Set(ref, token); err != nil {
-		return fmt.Errorf("failed to store token securely: %w", err)
-	}
-	cfg.AgentSessions[agentSessionName] = config.AgentSession{
-		Name:          agentSessionName,
-		BaseURL:       baseURL,
-		AgentUsername: resolvedAgent,
-		TokenRef:      ref,
-	}
-	cfg.ActiveAgentSession = agentSessionName
-	if err := rt.SaveConfig(cfg); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(cmd.OutOrStdout(), "login_ok: %s\n", agentSessionName)
-	fmt.Fprintf(cmd.OutOrStdout(), "active_agent_session: %s\n", agentSessionName)
-	fmt.Fprintf(cmd.OutOrStdout(), "agent: %s\n", resolvedAgent)
-	fmt.Fprintf(cmd.OutOrStdout(), "base_url: %s\n", baseURL)
 	return nil
 }
 
@@ -224,6 +157,21 @@ func findAgentSessions(cfg config.File, agentUsername string, baseURL string) []
 	}
 	sort.Slice(matches, func(i, j int) bool { return matches[i].Name < matches[j].Name })
 	return matches
+}
+
+func upsertAgentSession(cfg *config.File, session config.AgentSession) {
+	if cfg.AgentSessions == nil {
+		cfg.AgentSessions = map[string]config.AgentSession{}
+	}
+	for name, existing := range cfg.AgentSessions {
+		if name == session.Name {
+			continue
+		}
+		if existing.AgentUsername == session.AgentUsername && existing.BaseURL == session.BaseURL {
+			delete(cfg.AgentSessions, name)
+		}
+	}
+	cfg.AgentSessions[session.Name] = session
 }
 
 func buildAgentSessions(cfg config.File) []map[string]any {
@@ -528,12 +476,12 @@ func saveRegisteredAgentSession(rt *cli.Runtime, payload map[string]any, baseURL
 	if err := rt.Secrets.Set(ref, token); err != nil {
 		return result, fmt.Errorf("failed to store token securely: %w", err)
 	}
-	cfg.AgentSessions[agentSessionName] = config.AgentSession{
+	upsertAgentSession(&cfg, config.AgentSession{
 		Name:          agentSessionName,
 		BaseURL:       baseURL,
 		AgentUsername: agentUsername,
 		TokenRef:      ref,
-	}
+	})
 
 	shouldLogIn := forceLogIn
 	if !forceLogIn {

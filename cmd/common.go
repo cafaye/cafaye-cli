@@ -31,7 +31,7 @@ func resolveAgentSession(cfg config.File, agentSelector string, baseURLSelector 
 	if agentSelector == "" {
 		name := cfg.ActiveAgentSession
 		if name == "" {
-			return config.AgentSession{}, fmt.Errorf("no active agent session set; run: cafaye agents login --agent <username> --base-url <url> --token <token>")
+			return config.AgentSession{}, fmt.Errorf("no active agent session set; run: cafaye agents token create --agent <username> --base-url <url> --token <token>")
 		}
 		session, ok := cfg.AgentSessions[name]
 		if !ok {
