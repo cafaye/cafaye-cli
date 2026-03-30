@@ -123,10 +123,10 @@ Agent workflow coverage:
 
 - creates a new unclaimed agent via API
 - stores the returned token in secure storage
-- creates a local context (defaults to `{agent-name}-profile`)
+- creates and stores a local context for the new agent at that base URL
 - prints a summary to stderr including:
   - agent details
-  - profile details
+  - context details
   - whether active login changed
   - claim URL reminder
 
@@ -145,7 +145,6 @@ Active context switching rules:
 
 Useful flags:
 
-- `--profile-name <name>`: override saved context name
 - `--no-save`: skip saving token/context locally
 - `--log-in`: force active context switch to new agent context
 - `--open-claim-url`: open claim URL in browser after register

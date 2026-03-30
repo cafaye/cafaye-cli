@@ -77,7 +77,7 @@ func TestAgentsLoginWithTokenAndList(t *testing.T) {
 	}
 	out.Reset()
 
-	if err := exec(t, root, "agents", "list", "--profile", "a1-127-0-0-1"); err != nil {
+	if err := exec(t, root, "agents", "list", "--context", "a1-127-0-0-1"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"contexts"`) {
@@ -434,6 +434,8 @@ func TestAgentsListFallsBackToLocalContextsForUnclaimedAgent(t *testing.T) {
 		case "/api/agents":
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = w.Write([]byte(`{"error":"agent_unclaimed"}`))
+		case "/agents/home":
+			_, _ = w.Write([]byte(`{"agent":{"id":1,"username":"agent"}}`))
 		default:
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
@@ -480,14 +482,14 @@ func TestAgentsRegisterCreatesProfileByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ActiveProfile != "agent-abc-profile" {
-		t.Fatalf("expected active profile agent-abc-profile, got: %s", cfg.ActiveProfile)
+	if cfg.ActiveProfile != "agent-abc-127-0-0-1" {
+		t.Fatalf("expected active context agent-abc-127-0-0-1, got: %s", cfg.ActiveProfile)
 	}
-	p := cfg.Profiles["agent-abc-profile"]
+	p := cfg.Profiles["agent-abc-127-0-0-1"]
 	if p.AgentUsername != "agent-abc" {
 		t.Fatalf("expected agent username to be saved, got: %+v", p)
 	}
-	token, err := rt.Secrets.Get("profile:agent-abc-profile")
+	token, err := rt.Secrets.Get("profile:agent-abc-127-0-0-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -721,7 +723,7 @@ func TestAgentsRegisterDoesNotSwitchActiveWhenAlreadyLoggedIn(t *testing.T) {
 	if cfg.ActiveProfile != "existing" {
 		t.Fatalf("expected active profile to remain existing, got: %s", cfg.ActiveProfile)
 	}
-	if _, ok := cfg.Profiles["new-agent-profile"]; !ok {
+	if _, ok := cfg.Profiles["new-agent-127-0-0-1"]; !ok {
 		t.Fatalf("expected new profile for new-agent, got: %+v", cfg.Profiles)
 	}
 	if !strings.Contains(errOut.String(), "logged_in: false") {
@@ -755,8 +757,8 @@ func TestAgentsRegisterSwitchesActiveWhenCurrentProfileUnauthorized(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ActiveProfile != "new-agent-profile" {
-		t.Fatalf("expected active profile to switch to new-agent-profile, got: %s", cfg.ActiveProfile)
+	if cfg.ActiveProfile != "new-agent-127-0-0-1" {
+		t.Fatalf("expected active context to switch to new-agent-127-0-0-1, got: %s", cfg.ActiveProfile)
 	}
 }
 
@@ -785,8 +787,8 @@ func TestAgentsRegisterLogInFlagSwitchesEvenWhenAlreadyLoggedIn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ActiveProfile != "new-agent-profile" {
-		t.Fatalf("expected active profile to switch to new-agent-profile, got: %s", cfg.ActiveProfile)
+	if cfg.ActiveProfile != "new-agent-127-0-0-1" {
+		t.Fatalf("expected active context to switch to new-agent-127-0-0-1, got: %s", cfg.ActiveProfile)
 	}
 	if !strings.Contains(errOut.String(), "logged_in: true") {
 		t.Fatalf("expected login summary, got: %s", errOut.String())
@@ -1107,7 +1109,7 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "Smoke Agent", "--profile-name", "smoke"); err != nil {
+	if err := exec(t, root, "agents", "register", "--base-url", s.URL, "--name", "Smoke Agent"); err != nil {
 		t.Fatal(err)
 	}
 	if err := exec(t, root, "agents", "claim-link", "refresh", "--agent-id", "11", "--idempotency-key", "run-claim-smoke"); err != nil {
