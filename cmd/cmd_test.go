@@ -51,36 +51,50 @@ func seedProfile(t *testing.T, rt *cli.Runtime, name string, baseURL string, tok
 	}
 }
 
-func TestProfileAddUseList(t *testing.T) {
+func TestAgentsLoginWithTokenAndList(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "profile", "add", "--name", "p1", "--base-url", "https://x", "--agent", "a1", "--token", "tok"); err != nil {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/agents/home":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"agent":{"username":"a1"}}`))
+		case "/api/agents":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"agents":[{"id":1,"username":"a1"}]}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer s.Close()
+
+	if err := exec(t, root, "agents", "login", "--agent", "a1", "--base-url", s.URL, "--token", "tok"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "profile_saved: p1") {
-		t.Fatalf("expected profile_saved output, got: %s", out.String())
+	if !strings.Contains(out.String(), "login_ok: a1-127-0-0-1") {
+		t.Fatalf("expected login output, got: %s", out.String())
 	}
 	out.Reset()
 
-	if err := exec(t, root, "profile", "list"); err != nil {
+	if err := exec(t, root, "agents", "list", "--profile", "a1-127-0-0-1"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "p1 (active)") {
-		t.Fatalf("expected active profile, got: %s", out.String())
+	if !strings.Contains(out.String(), `"contexts"`) {
+		t.Fatalf("expected contexts in agents list, got: %s", out.String())
 	}
 }
 
-func TestProfileAddMissingFlagsActionableError(t *testing.T) {
+func TestAgentsLoginWithoutTokenAndNoContextFails(t *testing.T) {
 	rt, _, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 
-	err := exec(t, root, "profile", "add", "--name", "p1")
+	err := exec(t, root, "agents", "login", "--agent", "a1")
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "cafaye profile add --name <name>") {
-		t.Fatalf("expected actionable invocation, got: %v", err)
+	if !strings.Contains(err.Error(), "no saved context matches") {
+		t.Fatalf("expected context selection error, got: %v", err)
 	}
 }
 
@@ -210,7 +224,7 @@ func TestRootHelpHasExamples(t *testing.T) {
 	if err := exec(t, root, "--help"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "cafaye profile add") {
+	if !strings.Contains(out.String(), "cafaye agents login") {
 		t.Fatalf("expected examples in help, got: %s", out.String())
 	}
 }
@@ -328,7 +342,7 @@ func TestVersionCommand(t *testing.T) {
 	}
 }
 
-func TestLoginStoresProfileAfterVerification(t *testing.T) {
+func TestAgentsLoginStoresContextAfterVerification(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/agents/home" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -340,16 +354,16 @@ func TestLoginStoresProfileAfterVerification(t *testing.T) {
 
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
-	err := exec(t, root, "login", "--name", "p1", "--base-url", s.URL, "--agent", "noel-agent", "--token", "tok")
+	err := exec(t, root, "agents", "login", "--base-url", s.URL, "--agent", "noel-agent", "--token", "tok")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "login_ok: p1") {
+	if !strings.Contains(out.String(), "login_ok: noel-agent-127-0-0-1") {
 		t.Fatalf("expected login output, got: %s", out.String())
 	}
 }
 
-func TestAgentsUseSetsProfileByAgentUsername(t *testing.T) {
+func TestAgentsLoginSwitchesExistingContextByAgentUsername(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	cfg := config.File{
 		ActiveProfile: "p1",
@@ -362,11 +376,81 @@ func TestAgentsUseSetsProfileByAgentUsername(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := NewRootCmdWithRuntime(rt)
-	if err := exec(t, root, "agents", "use", "--agent", "agent-b"); err != nil {
+	if err := exec(t, root, "agents", "login", "--agent", "agent-b"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "active_profile: p2") {
-		t.Fatalf("expected active profile output, got: %s", out.String())
+	if !strings.Contains(out.String(), "active_context: p2") {
+		t.Fatalf("expected active context output, got: %s", out.String())
+	}
+}
+
+func TestAgentsLoginSwitchRequiresAdditionalSelectorWhenMultipleContextsMatch(t *testing.T) {
+	rt, _, _, _ := testRuntime(t)
+	cfg := config.File{
+		ActiveProfile: "p1",
+		Profiles: map[string]config.Profile{
+			"p1": {Name: "p1", AgentUsername: "agent-a", BaseURL: "https://prod.example.com", TokenRef: "profile:p1"},
+			"p2": {Name: "p2", AgentUsername: "agent-a", BaseURL: "https://staging.example.com", TokenRef: "profile:p2"},
+		},
+	}
+	if err := rt.SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmdWithRuntime(rt)
+	err := exec(t, root, "agents", "login", "--agent", "agent-a")
+	if err == nil {
+		t.Fatal("expected ambiguity error")
+	}
+	if !strings.Contains(err.Error(), "multiple contexts match") {
+		t.Fatalf("expected ambiguity guidance, got: %v", err)
+	}
+}
+
+func TestAgentsLoginCanSelectContextByAgentAndBaseURL(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	cfg := config.File{
+		ActiveProfile: "p1",
+		Profiles: map[string]config.Profile{
+			"p1": {Name: "p1", AgentUsername: "agent-a", BaseURL: "https://prod.example.com", TokenRef: "profile:p1"},
+			"p2": {Name: "p2", AgentUsername: "agent-a", BaseURL: "https://staging.example.com", TokenRef: "profile:p2"},
+		},
+	}
+	if err := rt.SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "login", "--agent", "agent-a", "--base-url", "https://staging.example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "active_context: p2") {
+		t.Fatalf("expected context switch output, got: %s", out.String())
+	}
+}
+
+func TestAgentsListFallsBackToLocalContextsForUnclaimedAgent(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/agents":
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"error":"agent_unclaimed"}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedProfile(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+	if err := exec(t, root, "agents", "list"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"contexts"`) {
+		t.Fatalf("expected contexts in output, got: %s", out.String())
+	}
+	if !strings.Contains(out.String(), `"remote_error"`) {
+		t.Fatalf("expected remote_error in output, got: %s", out.String())
 	}
 }
 

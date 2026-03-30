@@ -5,8 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"os"
 	osExec "os/exec"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -26,7 +29,7 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 	cmd := &cobra.Command{Use: "agents", Short: "Agent resources"}
 	list := &cobra.Command{
 		Use:   "list",
-		Short: "List agents visible to current profile",
+		Short: "List agents and local contexts",
 		Example: `  cafaye agents list
   cafaye agents list --profile noel-agent-write`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -44,21 +47,190 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
 			if resp.StatusCode >= 300 {
+				if resp.StatusCode == 403 && strings.Contains(strings.ToLower(string(resp.Body)), "agent_unclaimed") {
+					return printJSON(cmd.OutOrStdout(), map[string]any{
+						"agents":         []any{},
+						"contexts":       buildLocalContexts(cfg),
+						"active_context": cfg.ActiveProfile,
+						"remote_error": map[string]any{
+							"status": resp.StatusCode,
+							"body":   summarizeErrorBody(resp.Body),
+							"hint":   "claim the agent before remote agent listing is available",
+						},
+					})
+				}
 				return apiError("agents list", resp.StatusCode, resp.Body)
 			}
 			var payload map[string]any
 			if err := json.Unmarshal(resp.Body, &payload); err != nil {
 				return err
 			}
+			payload["contexts"] = buildLocalContexts(cfg)
+			payload["active_context"] = cfg.ActiveProfile
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
 	list.Flags().StringVar(&profile, "profile", "", "Profile to use (defaults to active)")
 	cmd.AddCommand(list)
+	cmd.AddCommand(newAgentsLoginCmd(rt))
 	cmd.AddCommand(newAgentsRegisterCmd(rt))
 	cmd.AddCommand(newAgentsClaimLinkCmd(rt))
-	cmd.AddCommand(newAgentsUseCmd(rt))
 	return cmd
+}
+
+func newAgentsLoginCmd(rt *cli.Runtime) *cobra.Command {
+	var agentUsername string
+	var baseURL string
+	var token string
+
+	cmd := &cobra.Command{
+		Use:   "login",
+		Short: "Create or switch local agent context",
+		Example: `  cafaye agents login --agent noel-agent --base-url https://cafaye.example.com --token $CAFAYE_API_TOKEN
+  cafaye agents login --agent noel-agent --base-url https://staging.cafaye.example.com --token $STAGING_TOKEN
+  cafaye agents login --agent noel-agent --base-url https://cafaye.example.com`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := rt.LoadConfig()
+			if err != nil {
+				return err
+			}
+			token = strings.TrimSpace(token)
+			if token == "" {
+				token = strings.TrimSpace(os.Getenv("CAFAYE_API_TOKEN"))
+			}
+			if token == "" {
+				return switchExistingAgentContext(rt, cfg, agentUsername, baseURL, cmd)
+			}
+			return loginAndSaveAgentContext(rt, cfg, agentUsername, baseURL, token, cmd)
+		},
+	}
+
+	cmd.Flags().StringVar(&agentUsername, "agent", "", "Agent username")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Cafaye base URL (defaults to https://cafaye.com when --token is provided)")
+	cmd.Flags().StringVar(&token, "token", "", "Agent API token (falls back to CAFAYE_API_TOKEN)")
+	return cmd
+}
+
+func switchExistingAgentContext(rt *cli.Runtime, cfg config.File, agentUsername string, baseURL string, cmd *cobra.Command) error {
+	agentUsername = strings.TrimSpace(agentUsername)
+	baseURL = strings.TrimSpace(baseURL)
+	matches := findContexts(cfg, agentUsername, baseURL)
+	if len(matches) == 0 {
+		return fmt.Errorf("no saved context matches provided selectors; provide --token to create one")
+	}
+	if len(matches) > 1 {
+		return fmt.Errorf("multiple contexts match; specify additional identifying info like --base-url")
+	}
+	cfg.ActiveProfile = matches[0].Name
+	if err := rt.SaveConfig(cfg); err != nil {
+		return err
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "login_ok: %s\n", matches[0].Name)
+	fmt.Fprintf(cmd.OutOrStdout(), "active_context: %s\n", matches[0].Name)
+	fmt.Fprintf(cmd.OutOrStdout(), "agent: %s\n", matches[0].AgentUsername)
+	return nil
+}
+
+func loginAndSaveAgentContext(rt *cli.Runtime, cfg config.File, agentUsername string, baseURL string, token string, cmd *cobra.Command) error {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		baseURL = defaultRegisterBaseURL
+	}
+
+	client := &api.Client{BaseURL: baseURL, Token: token}
+	resp, err := client.Do("GET", "/agents/home", nil, "")
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode >= 300 {
+		return apiError("login verification", resp.StatusCode, resp.Body)
+	}
+	cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
+	var payload map[string]any
+	if err := json.Unmarshal(resp.Body, &payload); err != nil {
+		return err
+	}
+
+	resolvedAgent := strings.TrimSpace(agentUsername)
+	if resolvedAgent == "" {
+		if agentMap, ok := payload["agent"].(map[string]any); ok {
+			resolvedAgent, _ = agentMap["username"].(string)
+			resolvedAgent = strings.TrimSpace(resolvedAgent)
+		}
+	}
+	if resolvedAgent == "" {
+		return fmt.Errorf("missing --agent and unable to infer agent username from server response")
+	}
+
+	if cfg.Profiles == nil {
+		cfg.Profiles = map[string]config.Profile{}
+	}
+
+	contextName := contextNameForAgentAndBaseURL(resolvedAgent, baseURL)
+	ref := "profile:" + contextName
+	if err := rt.Secrets.Set(ref, token); err != nil {
+		return fmt.Errorf("failed to store token securely: %w", err)
+	}
+	cfg.Profiles[contextName] = config.Profile{
+		Name:          contextName,
+		BaseURL:       baseURL,
+		AgentUsername: resolvedAgent,
+		TokenRef:      ref,
+	}
+	cfg.ActiveProfile = contextName
+	if err := rt.SaveConfig(cfg); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "login_ok: %s\n", contextName)
+	fmt.Fprintf(cmd.OutOrStdout(), "active_context: %s\n", contextName)
+	fmt.Fprintf(cmd.OutOrStdout(), "agent: %s\n", resolvedAgent)
+	fmt.Fprintf(cmd.OutOrStdout(), "base_url: %s\n", baseURL)
+	return nil
+}
+
+func contextNameForAgentAndBaseURL(agentUsername string, baseURL string) string {
+	hostname := "default"
+	if parsed, err := url.Parse(strings.TrimSpace(baseURL)); err == nil && parsed.Host != "" {
+		hostname = strings.ToLower(strings.TrimSpace(parsed.Hostname()))
+		if hostname == "" {
+			hostname = "default"
+		}
+	}
+	return fmt.Sprintf("%s-%s", usernameBase(agentUsername), usernameBase(hostname))
+}
+
+func findContexts(cfg config.File, agentUsername string, baseURL string) []config.Profile {
+	matches := make([]config.Profile, 0)
+	for _, p := range cfg.Profiles {
+		if strings.TrimSpace(agentUsername) != "" && p.AgentUsername != strings.TrimSpace(agentUsername) {
+			continue
+		}
+		if strings.TrimSpace(baseURL) != "" && p.BaseURL != strings.TrimSpace(baseURL) {
+			continue
+		}
+		matches = append(matches, p)
+	}
+	sort.Slice(matches, func(i, j int) bool { return matches[i].Name < matches[j].Name })
+	return matches
+}
+
+func buildLocalContexts(cfg config.File) []map[string]any {
+	contexts := make([]map[string]any, 0, len(cfg.Profiles))
+	for name, p := range cfg.Profiles {
+		contexts = append(contexts, map[string]any{
+			"name":           p.Name,
+			"agent_username": p.AgentUsername,
+			"base_url":       p.BaseURL,
+			"active":         name == cfg.ActiveProfile,
+		})
+	}
+	sort.Slice(contexts, func(i, j int) bool {
+		left, _ := contexts[i]["name"].(string)
+		right, _ := contexts[j]["name"].(string)
+		return left < right
+	})
+	return contexts
 }
 
 func newAgentsRegisterCmd(rt *cli.Runtime) *cobra.Command {
@@ -247,38 +419,6 @@ func randomSuffix(length int) string {
 		buf[i] = alphabet[int(buf[i])%len(alphabet)]
 	}
 	return string(buf)
-}
-
-func newAgentsUseCmd(rt *cli.Runtime) *cobra.Command {
-	var agentUsername string
-	cmd := &cobra.Command{
-		Use:   "use",
-		Short: "Set active profile by agent username",
-		Example: `  cafaye agents use --agent noel-agent
-  cafaye agents use --agent editorial-agent`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if agentUsername == "" {
-				return fmt.Errorf("missing --agent\n  cafaye agents use --agent <agent-username>")
-			}
-			cfg, err := rt.LoadConfig()
-			if err != nil {
-				return err
-			}
-			for name, p := range cfg.Profiles {
-				if p.AgentUsername == agentUsername {
-					cfg.ActiveProfile = name
-					if err := rt.SaveConfig(cfg); err != nil {
-						return err
-					}
-					fmt.Fprintf(cmd.OutOrStdout(), "active_profile: %s\n", name)
-					return nil
-				}
-			}
-			return fmt.Errorf("no profile found for agent %q", agentUsername)
-		},
-	}
-	cmd.Flags().StringVar(&agentUsername, "agent", "", "Agent username")
-	return cmd
 }
 
 func newAgentsClaimLinkCmd(rt *cli.Runtime) *cobra.Command {

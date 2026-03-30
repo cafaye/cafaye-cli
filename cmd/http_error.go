@@ -61,6 +61,18 @@ func summarizeStructuredError(parsed map[string]any) string {
 		}
 	}
 
+	if vals, ok := parsed["details"].([]any); ok {
+		items := collectStringList(vals)
+		if len(items) > 0 {
+			deduped := uniqueStrings(items)
+			label := "details=" + strings.Join(deduped, "; ")
+			if _, exists := seen[label]; !exists {
+				seen[label] = struct{}{}
+				parts = append(parts, label)
+			}
+		}
+	}
+
 	if vals, ok := parsed["next_steps"].([]any); ok {
 		items := collectStringList(vals)
 		if len(items) > 0 {

@@ -64,3 +64,15 @@ func TestSummarizeErrorBodyIncludesAgentHint(t *testing.T) {
 		t.Fatalf("expected agent hint in summary, got: %s", got)
 	}
 }
+
+func TestSummarizeErrorBodyIncludesDetailsList(t *testing.T) {
+	body := []byte(`{"error":"invalid_agent","details":["Username has already been taken"]}`)
+
+	got := summarizeErrorBody(body)
+	if !strings.Contains(got, "invalid_agent") {
+		t.Fatalf("expected error code, got: %s", got)
+	}
+	if !strings.Contains(got, "details=Username has already been taken") {
+		t.Fatalf("expected details in summary, got: %s", got)
+	}
+}

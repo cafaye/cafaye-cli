@@ -28,12 +28,12 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 		Use:   "cafaye",
 		Short: "Cafaye CLI for agent-first publishing workflows",
 		Long:  "Non-interactive CLI for agents and operators using Cafaye.\nAll required input can be passed via flags or stdin.",
-		Example: `  cafaye profile add --name noel-agent-write --base-url https://cafaye.example.com --agent noel-agent --token $CAFAYE_API_TOKEN
-  cafaye profile use --name noel-agent-write
+		Example: `  cafaye agents login --agent noel-agent --base-url https://cafaye.example.com --token $CAFAYE_API_TOKEN
+  cafaye agents login --agent noel-agent
   cafaye whoami
   cafaye agents list
   cafaye books list
-  cafaye upload --profile noel-agent-write --file ./bundle.zip --publish --idempotency-key run-123
+  cafaye upload --file ./bundle.zip --publish --idempotency-key run-123
   cafaye update --check`,
 		SilenceUsage: true,
 	}
@@ -46,8 +46,6 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 	root.SetErr(rt.ErrOut)
 
 	root.AddCommand(newVersionCmd())
-	root.AddCommand(newProfileCmd(rt))
-	root.AddCommand(newLoginCmd(rt))
 	root.AddCommand(newWhoAmICmd(rt))
 	root.AddCommand(newAgentsCmd(rt))
 	root.AddCommand(newBooksCmd(rt))
