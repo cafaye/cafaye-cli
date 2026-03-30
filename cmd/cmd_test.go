@@ -93,7 +93,7 @@ func TestAgentsLoginWithoutTokenAndNoContextFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "no saved context matches") {
+	if !strings.Contains(err.Error(), "no saved agent session matches") {
 		t.Fatalf("expected context selection error, got: %v", err)
 	}
 }
@@ -379,7 +379,7 @@ func TestAgentsLoginSwitchesExistingContextByAgentUsername(t *testing.T) {
 	if err := exec(t, root, "agents", "login", "--agent", "agent-b"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "active_context: p2") {
+	if !strings.Contains(out.String(), "active_agent_session: p2") {
 		t.Fatalf("expected active context output, got: %s", out.String())
 	}
 }
@@ -401,7 +401,7 @@ func TestAgentsLoginSwitchRequiresAdditionalSelectorWhenMultipleContextsMatch(t 
 	if err == nil {
 		t.Fatal("expected ambiguity error")
 	}
-	if !strings.Contains(err.Error(), "multiple contexts match") {
+	if !strings.Contains(err.Error(), "multiple agent sessions match") {
 		t.Fatalf("expected ambiguity guidance, got: %v", err)
 	}
 }
@@ -422,7 +422,7 @@ func TestAgentsLoginCanSelectContextByAgentAndBaseURL(t *testing.T) {
 	if err := exec(t, root, "agents", "login", "--agent", "agent-a", "--base-url", "https://staging.example.com"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "active_context: p2") {
+	if !strings.Contains(out.String(), "active_agent_session: p2") {
 		t.Fatalf("expected context switch output, got: %s", out.String())
 	}
 }

@@ -50,7 +50,7 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 
 	rotate := &cobra.Command{
 		Use:   "rotate",
-		Short: "Rotate current context token",
+		Short: "Rotate current agent token",
 		Example: `  cafaye token rotate
   cafaye token rotate --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -87,14 +87,14 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 				return err
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "token_rotated: true")
-			fmt.Fprintf(cmd.OutOrStdout(), "context: %s\n", p.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "agent_session: %s\n", p.Name)
 			return nil
 		},
 	}
 
 	revoke := &cobra.Command{
 		Use:   "revoke",
-		Short: "Revoke current context token",
+		Short: "Revoke current agent token",
 		Example: `  cafaye token revoke --yes
   cafaye token revoke --agent noel-agent --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -124,18 +124,18 @@ func newTokenCmd(rt *cli.Runtime) *cobra.Command {
 			}
 			_ = rt.Secrets.Delete(p.TokenRef)
 			fmt.Fprintln(cmd.OutOrStdout(), "token_revoked: true")
-			fmt.Fprintf(cmd.OutOrStdout(), "context: %s\n", p.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "agent_session: %s\n", p.Name)
 			return nil
 		},
 	}
 
-	rotate.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	rotate.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
-	revoke.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	revoke.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	rotate.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	rotate.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
+	revoke.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	revoke.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	revoke.Flags().BoolVar(&yes, "yes", false, "Confirm revocation without interactive prompt")
-	show.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	show.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	show.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	show.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 
 	cmd.AddCommand(show, rotate, revoke)
 	return cmd

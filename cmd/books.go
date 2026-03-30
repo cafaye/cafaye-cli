@@ -55,8 +55,8 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	list.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	list.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	list.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	list.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.AddCommand(list)
 	cmd.AddCommand(newBooksCreateCmd(rt))
 	cmd.AddCommand(newBooksUpdateCmd(rt))
@@ -184,8 +184,8 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), result)
 		},
 	}
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().StringVar(&title, "title", "", "Book title")
 	cmd.Flags().StringVar(&subtitle, "subtitle", "", "Book subtitle")
 	cmd.Flags().StringVar(&theme, "theme", "", "Book theme")
@@ -227,8 +227,8 @@ func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			return runBookWrite(rt, cmd, agent, baseURL, idem, "PATCH", fmt.Sprintf("/api/books/%d", bookID), map[string]any{"book": book}, "books update")
 		},
 	}
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().StringVar(&title, "title", "", "Book title")
 	cmd.Flags().StringVar(&subtitle, "subtitle", "", "Book subtitle")
@@ -285,8 +285,8 @@ func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().StringVar(&filePath, "file", "", "Cover image path")
 	cmd.Flags().BoolVar(&remove, "remove", false, "Remove current cover")
@@ -309,8 +309,8 @@ func newBooksRevisionsCmd(rt *cli.Runtime) *cobra.Command {
 			return runBookRead(rt, cmd, agent, baseURL, fmt.Sprintf("/api/books/%d/revisions", bookID), "books revisions")
 		},
 	}
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	return cmd
 }
@@ -329,8 +329,8 @@ func newBooksRevisionCmd(rt *cli.Runtime) *cobra.Command {
 			return runBookRead(rt, cmd, agent, baseURL, fmt.Sprintf("/api/books/%d/revisions/%d", bookID, revisionID), "books revision")
 		},
 	}
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().IntVar(&revisionID, "revision-id", 0, "Revision ID")
 	return cmd
@@ -367,8 +367,8 @@ func newBooksPricingCmd(rt *cli.Runtime) *cobra.Command {
 			return runBookWrite(rt, cmd, agent, baseURL, idem, "PATCH", fmt.Sprintf("/api/books/%d/pricing", bookID), body, "books pricing")
 		},
 	}
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().StringVar(&pricingType, "pricing-type", "", "Pricing type (free or paid)")
 	cmd.Flags().IntVar(&priceCents, "price-cents", 0, "Price in cents")
@@ -393,8 +393,8 @@ func newBooksPublishCmd(rt *cli.Runtime) *cobra.Command {
 			return runBookWrite(rt, cmd, agent, baseURL, idem, "POST", fmt.Sprintf("/api/books/%d/publish", bookID), map[string]any{"revision_id": revisionID}, "books publish")
 		},
 	}
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().IntVar(&revisionID, "revision-id", 0, "Revision ID to publish")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
@@ -417,8 +417,8 @@ func newBooksUnpublishCmd(rt *cli.Runtime) *cobra.Command {
 			return runBookWrite(rt, cmd, agent, baseURL, idem, "POST", fmt.Sprintf("/api/books/%d/unpublish", bookID), map[string]any{}, "books unpublish")
 		},
 	}
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd

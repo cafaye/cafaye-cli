@@ -19,7 +19,7 @@ func clientForProfile(rt *cli.Runtime, cfg config.File, contextName string) (*ap
 	}
 	token, err := rt.Secrets.Get(p.TokenRef)
 	if err != nil {
-		return nil, fmt.Errorf("token for context %q not available: %w", p.Name, err)
+		return nil, fmt.Errorf("token for agent session %q not available: %w", p.Name, err)
 	}
 	return &api.Client{BaseURL: p.BaseURL, Token: token}, nil
 }
@@ -31,11 +31,11 @@ func resolveContext(cfg config.File, agentSelector string, baseURLSelector strin
 	if agentSelector == "" {
 		name := cfg.ActiveProfile
 		if name == "" {
-			return config.Profile{}, fmt.Errorf("no active context set; run: cafaye agents login --agent <username> --base-url <url> --token <token>")
+			return config.Profile{}, fmt.Errorf("no active agent session set; run: cafaye agents login --agent <username> --base-url <url> --token <token>")
 		}
 		p, ok := cfg.Profiles[name]
 		if !ok {
-			return config.Profile{}, fmt.Errorf("context %q not found", name)
+			return config.Profile{}, fmt.Errorf("agent session %q not found", name)
 		}
 		return p, nil
 	}
@@ -53,10 +53,10 @@ func resolveContext(cfg config.File, agentSelector string, baseURLSelector strin
 	sort.Slice(matches, func(i, j int) bool { return matches[i].Name < matches[j].Name })
 
 	if len(matches) == 0 {
-		return config.Profile{}, fmt.Errorf("no saved context for agent %q", agentSelector)
+		return config.Profile{}, fmt.Errorf("no saved agent session for agent %q", agentSelector)
 	}
 	if len(matches) > 1 {
-		return config.Profile{}, fmt.Errorf("multiple contexts match agent %q; provide --base-url", agentSelector)
+		return config.Profile{}, fmt.Errorf("multiple agent sessions match agent %q; provide --base-url", agentSelector)
 	}
 	return matches[0], nil
 }

@@ -81,8 +81,8 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().StringVar(&filePath, "file", "", "Path to source bundle zip")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key for retry-safe uploads")
 	cmd.Flags().BoolVar(&publish, "publish", false, "Publish after successful upload")
@@ -134,8 +134,8 @@ func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&uploadID, "id", 0, "Upload ID")
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	return cmd
 }
 

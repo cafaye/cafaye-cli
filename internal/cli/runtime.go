@@ -31,7 +31,7 @@ func (r *Runtime) ActiveProfile(cfg config.File, explicit string) (config.Profil
 		name = cfg.ActiveProfile
 	}
 	if name == "" {
-		return config.Profile{}, fmt.Errorf("no active context set; run: cafaye agents login --agent <username> --base-url <url> --token <token>")
+		return config.Profile{}, fmt.Errorf("no active agent session set; run: cafaye agents login --agent <username> --base-url <url> --token <token>")
 	}
 	p, ok := cfg.Profiles[name]
 	if !ok {

@@ -60,7 +60,7 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 					return printJSON(cmd.OutOrStdout(), map[string]any{
 						"agents":         []any{},
 						"contexts":       buildLocalContexts(cfg),
-						"active_context": cfg.ActiveProfile,
+						"active_agent_session": cfg.ActiveProfile,
 						"current_agent":  current["agent"],
 						"remote_error": map[string]any{
 							"status": resp.StatusCode,
@@ -76,12 +76,12 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 				return err
 			}
 			payload["contexts"] = buildLocalContexts(cfg)
-			payload["active_context"] = cfg.ActiveProfile
+			payload["active_agent_session"] = cfg.ActiveProfile
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	list.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	list.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	list.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	list.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.AddCommand(list)
 	cmd.AddCommand(newAgentsLoginCmd(rt))
 	cmd.AddCommand(newAgentsRegisterCmd(rt))
@@ -127,17 +127,17 @@ func switchExistingAgentContext(rt *cli.Runtime, cfg config.File, agentUsername 
 	baseURL = strings.TrimSpace(baseURL)
 	matches := findContexts(cfg, agentUsername, baseURL)
 	if len(matches) == 0 {
-		return fmt.Errorf("no saved context matches provided selectors; provide --token to create one")
+		return fmt.Errorf("no saved agent session matches provided selectors; provide --token to create one")
 	}
 	if len(matches) > 1 {
-		return fmt.Errorf("multiple contexts match; specify additional identifying info like --base-url")
+		return fmt.Errorf("multiple agent sessions match; specify additional identifying info like --base-url")
 	}
 	cfg.ActiveProfile = matches[0].Name
 	if err := rt.SaveConfig(cfg); err != nil {
 		return err
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "login_ok: %s\n", matches[0].Name)
-	fmt.Fprintf(cmd.OutOrStdout(), "active_context: %s\n", matches[0].Name)
+	fmt.Fprintf(cmd.OutOrStdout(), "active_agent_session: %s\n", matches[0].Name)
 	fmt.Fprintf(cmd.OutOrStdout(), "agent: %s\n", matches[0].AgentUsername)
 	return nil
 }
@@ -194,7 +194,7 @@ func loginAndSaveAgentContext(rt *cli.Runtime, cfg config.File, agentUsername st
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "login_ok: %s\n", contextName)
-	fmt.Fprintf(cmd.OutOrStdout(), "active_context: %s\n", contextName)
+	fmt.Fprintf(cmd.OutOrStdout(), "active_agent_session: %s\n", contextName)
 	fmt.Fprintf(cmd.OutOrStdout(), "agent: %s\n", resolvedAgent)
 	fmt.Fprintf(cmd.OutOrStdout(), "base_url: %s\n", baseURL)
 	return nil
@@ -313,8 +313,8 @@ func newAgentsRegisterCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Cafaye base URL (defaults to https://cafaye.com)")
 	cmd.Flags().StringVar(&name, "name", "", "Optional agent display name for registration")
 	cmd.Flags().StringVar(&username, "username", "", "Optional agent username for registration")
-	cmd.Flags().BoolVar(&noSave, "no-save", false, "Do not save token/context locally")
-	cmd.Flags().BoolVar(&logIn, "log-in", false, "Set the new context as active even when another context is currently logged in")
+	cmd.Flags().BoolVar(&noSave, "no-save", false, "Do not save token/agent-session locally")
+	cmd.Flags().BoolVar(&logIn, "log-in", false, "Set the new agent session as active even when another context is currently logged in")
 	cmd.Flags().BoolVar(&openClaimURL, "open-claim-url", false, "Open claim URL in browser after register")
 	return cmd
 }
@@ -477,8 +477,8 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID")
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active context)")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple contexts exist for an agent")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd
 }
@@ -617,16 +617,16 @@ func printRegisterSummary(cmd *cobra.Command, payload map[string]any, persist re
 
 	fmt.Fprintf(cmd.ErrOrStderr(), "agent_registered: id=%d username=%s status=%s\n", agentID, strings.TrimSpace(agentUsername), strings.TrimSpace(agentStatus))
 	if noSave {
-		fmt.Fprintln(cmd.ErrOrStderr(), "context_saved: false (--no-save)")
+		fmt.Fprintln(cmd.ErrOrStderr(), "agent_session_saved: false (--no-save)")
 	} else {
-		fmt.Fprintf(cmd.ErrOrStderr(), "context_saved: %s\n", persist.ContextName)
+		fmt.Fprintf(cmd.ErrOrStderr(), "agent_session_saved: %s\n", persist.ContextName)
 		if persist.LoggedIn {
-			fmt.Fprintf(cmd.ErrOrStderr(), "logged_in: true (active_context=%s)\n", persist.CurrentActive)
+			fmt.Fprintf(cmd.ErrOrStderr(), "logged_in: true (active_agent_session=%s)\n", persist.CurrentActive)
 		} else {
-			fmt.Fprintf(cmd.ErrOrStderr(), "logged_in: false (active_context_unchanged=%s)\n", persist.CurrentActive)
+			fmt.Fprintf(cmd.ErrOrStderr(), "logged_in: false (active_agent_session_unchanged=%s)\n", persist.CurrentActive)
 		}
 		if persist.ActiveCheckError != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "active_context_check: warning (%v)\n", persist.ActiveCheckError)
+			fmt.Fprintf(cmd.ErrOrStderr(), "active_agent_session_check: warning (%v)\n", persist.ActiveCheckError)
 		}
 	}
 
