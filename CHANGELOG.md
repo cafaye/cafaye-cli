@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.3.2
+
+### Summary
+
+- Changed token bootstrap flow so `agents token create` now issues a fresh server token and stores it locally.
+
+### Highlights
+
+- `cafaye agents token create` now:
+  - uses current authenticated agent session
+  - requests a new token from API (`POST /api/key`)
+  - stores returned token in local secure storage
+- Removed manual token import pattern from command examples and onboarding docs.
+- Updated README and bundled skill guidance to match the new token-create semantics.
+- Added/updated API + CLI tests for token creation flow.
+
+### Breaking Changes
+
+- `cafaye agents token create --token <...>` is no longer supported.
+
+### Migration Notes
+
+- Use:
+  - `cafaye agents token create [--agent <username>] [--base-url <url>]`
+- If no session exists yet, bootstrap with:
+  - `cafaye agents register --base-url <url> --name <name>`
+
+### Verification
+
+- `go test ./...`
+- `bundle exec rails test test/controllers/api/keys_controller_test.rb test/controllers/agents_controller_test.rb`
+
 ## v0.3.1
 
 ### Summary

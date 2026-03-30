@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cafaye/cafaye-cli/internal/api"
 	"github.com/cafaye/cafaye-cli/internal/cli"
 	"github.com/cafaye/cafaye-cli/internal/config"
 	"github.com/spf13/cobra"
@@ -22,80 +21,65 @@ func newAgentsTokenCmd(rt *cli.Runtime) *cobra.Command {
 
 	create := &cobra.Command{
 		Use:   "create",
-		Short: "Create or update stored token for an agent session",
-		Example: `  cafaye agents token create --agent noel-agent --base-url https://cafaye.example.com --token $CAFAYE_API_TOKEN
-  cafaye agents token create --base-url https://cafaye.example.com --token $CAFAYE_API_TOKEN`,
+		Short: "Create a new token server-side and store it for an agent session",
+		Example: `  cafaye agents token create
+  cafaye agents token create --agent noel-agent --base-url https://cafaye.example.com`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			resolvedToken := strings.TrimSpace(token)
-			if resolvedToken == "" {
-				return fmt.Errorf("missing --token\n  cafaye agents token create --agent <username> --base-url <url> --token <token>")
-			}
-
-			resolvedBaseURL := strings.TrimSpace(baseURL)
-			if resolvedBaseURL == "" {
-				resolvedBaseURL = defaultRegisterBaseURL
-			}
-
-			client := &api.Client{BaseURL: resolvedBaseURL, Token: resolvedToken}
-			resp, err := client.Do("GET", "/agents/home", nil, "")
-			if err != nil {
-				return err
-			}
-			if resp.StatusCode >= 300 {
-				return apiError("agents token create verification", resp.StatusCode, resp.Body)
-			}
-			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
-
-			var payload map[string]any
-			if err := json.Unmarshal(resp.Body, &payload); err != nil {
-				return err
-			}
-
-			resolvedAgent := strings.TrimSpace(agent)
-			if agentMap, ok := payload["agent"].(map[string]any); ok {
-				serverAgent, _ := agentMap["username"].(string)
-				serverAgent = strings.TrimSpace(serverAgent)
-				if resolvedAgent == "" {
-					resolvedAgent = serverAgent
-				}
-				if serverAgent != "" && resolvedAgent != "" && resolvedAgent != serverAgent {
-					return fmt.Errorf("provided --agent %q does not match token identity %q", resolvedAgent, serverAgent)
-				}
-			}
-			if resolvedAgent == "" {
-				return fmt.Errorf("missing --agent and unable to infer agent username from server response")
+			if strings.TrimSpace(token) != "" {
+				return fmt.Errorf("--token import is no longer supported; run without --token to issue a fresh server token")
 			}
 
 			cfg, err := rt.LoadConfig()
 			if err != nil {
 				return err
 			}
-			if cfg.AgentSessions == nil {
-				cfg.AgentSessions = map[string]config.AgentSession{}
+			currSession, err := resolveAgentSession(cfg, agent, baseURL)
+			if err != nil {
+				return err
+			}
+			client, err := clientForAgentSession(rt, cfg, currSession.Name)
+			if err != nil {
+				return err
 			}
 
-			agentSessionName := agentSessionNameForAgentAndBaseURL(resolvedAgent, resolvedBaseURL)
-			ref := "agent_session:" + agentSessionName
+			idem := fmt.Sprintf("run-token-create-%d", time.Now().UnixNano())
+			resp, err := client.Do("POST", "/api/key", map[string]any{"name": "cli-issued"}, idem)
+			if err != nil {
+				return err
+			}
+			cli.PrintDeprecation(cmd.ErrOrStderr(), resp.Deprecation)
+			if resp.StatusCode >= 300 {
+				return apiError("agents token create", resp.StatusCode, resp.Body)
+			}
+
+			var payload map[string]any
+			if err := json.Unmarshal(resp.Body, &payload); err != nil {
+				return err
+			}
+			resolvedToken, _ := payload["token"].(string)
+			if strings.TrimSpace(resolvedToken) == "" {
+				return fmt.Errorf("token create response did not include token")
+			}
+			ref := currSession.TokenRef
+			if strings.TrimSpace(ref) == "" {
+				ref = "agent_session:" + currSession.Name
+			}
 			if err := rt.Secrets.Set(ref, resolvedToken); err != nil {
 				return fmt.Errorf("failed to store token securely: %w", err)
 			}
-			upsertAgentSession(&cfg, config.AgentSession{
-				Name:          agentSessionName,
-				BaseURL:       resolvedBaseURL,
-				AgentUsername: resolvedAgent,
-				TokenRef:      ref,
-			})
-			if strings.TrimSpace(cfg.ActiveAgentSession) == "" {
-				cfg.ActiveAgentSession = agentSessionName
+			if cfg.AgentSessions == nil {
+				cfg.AgentSessions = map[string]config.AgentSession{}
 			}
+			currSession.TokenRef = ref
+			cfg.AgentSessions[currSession.Name] = currSession
 			if err := rt.SaveConfig(cfg); err != nil {
 				return err
 			}
 
 			fmt.Fprintln(cmd.OutOrStdout(), "token_created: true")
-			fmt.Fprintf(cmd.OutOrStdout(), "agent_session: %s\n", agentSessionName)
-			fmt.Fprintf(cmd.OutOrStdout(), "agent: %s\n", resolvedAgent)
-			fmt.Fprintf(cmd.OutOrStdout(), "base_url: %s\n", resolvedBaseURL)
+			fmt.Fprintf(cmd.OutOrStdout(), "agent_session: %s\n", currSession.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "agent: %s\n", currSession.AgentUsername)
+			fmt.Fprintf(cmd.OutOrStdout(), "base_url: %s\n", currSession.BaseURL)
 			return nil
 		},
 	}
@@ -215,10 +199,9 @@ func newAgentsTokenCmd(rt *cli.Runtime) *cobra.Command {
 		},
 	}
 
-	create.Flags().StringVar(&agent, "agent", "", "Agent username (optional when token can infer identity)")
+	create.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	create.Flags().StringVar(&baseURL, "base-url", "", "Cafaye base URL (defaults to https://cafaye.com)")
-	create.Flags().StringVar(&token, "token", "", "Agent API token")
-	_ = create.MarkFlagRequired("token")
+	create.Flags().StringVar(&token, "token", "", "Deprecated token import flag (unsupported)")
 
 	rotate.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	rotate.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")

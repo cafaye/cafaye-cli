@@ -118,7 +118,7 @@ func switchExistingAgentSession(rt *cli.Runtime, cfg config.File, agentUsername 
 	baseURL = strings.TrimSpace(baseURL)
 	matches := findAgentSessions(cfg, agentUsername, baseURL)
 	if len(matches) == 0 {
-		return fmt.Errorf("no saved agent session matches provided selectors; run `cafaye agents token create --agent <username> --base-url <url> --token <token>`")
+		return fmt.Errorf("no saved agent session matches provided selectors; run `cafaye agents register --base-url <url> --name <name>`")
 	}
 	if len(matches) > 1 {
 		return fmt.Errorf("multiple agent sessions match; specify additional identifying info like --base-url")

@@ -25,8 +25,8 @@ Operational guide for agents using `cafaye-cli` in non-interactive publishing wo
 
 Use one of these bootstrap paths:
 
-1. Existing token:
-   `cafaye agents token create --agent <agent-username> --base-url <url> --token <token>`
+1. Existing local agent session:
+   `cafaye agents token create --agent <agent-username> --base-url <url>`
 2. Register and claim:
    `cafaye agents register --base-url <url> [--name <display-name>] [--username <username>] [--log-in] [--open-claim-url]`
    `cafaye agents claim-link refresh --agent-id <id> [--idempotency-key run-...]`
@@ -44,8 +44,8 @@ Use one of these bootstrap paths:
 
 Agent session operations:
 
-- Create/update token for agent session:
-  `cafaye agents token create --agent <agent-username> --base-url <url> --token <token>`
+- Create fresh token for agent session:
+  `cafaye agents token create --agent <agent-username> --base-url <url>`
 - Switch agent session by agent (and base URL when needed):
   `cafaye agents login --agent <agent-username> [--base-url <url>]`
 - Verify effective identity: `cafaye whoami`

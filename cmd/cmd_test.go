@@ -57,9 +57,16 @@ func TestAgentsTokenCreateAndList(t *testing.T) {
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/agents/home":
+		case "/api/key":
+			if r.Method != http.MethodPost {
+				t.Fatalf("unexpected method: %s", r.Method)
+			}
+			if got := r.Header.Get("Authorization"); got != "Bearer oldtok" {
+				t.Fatalf("expected bearer oldtok, got: %q", got)
+			}
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"agent":{"username":"a1"}}`))
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"api_key":{"id":7,"name":"cli-issued","scopes":["books:write"]},"token":"newtok"}`))
 		case "/api/agents":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"agents":[{"id":1,"username":"a1"}]}`))
@@ -69,11 +76,28 @@ func TestAgentsTokenCreateAndList(t *testing.T) {
 	}))
 	defer s.Close()
 
-	if err := exec(t, root, "agents", "token", "create", "--agent", "a1", "--base-url", s.URL, "--token", "tok"); err != nil {
+	cfg := config.File{ActiveAgentSession: "a1-localhost", AgentSessions: map[string]config.AgentSession{
+		"a1-localhost": {Name: "a1-localhost", BaseURL: s.URL, AgentUsername: "a1", TokenRef: "agent_session:a1-localhost"},
+	}}
+	if err := rt.SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.Secrets.Set("agent_session:a1-localhost", "oldtok"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := exec(t, root, "agents", "token", "create", "--agent", "a1", "--base-url", s.URL); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "token_created: true") {
 		t.Fatalf("expected token create output, got: %s", out.String())
+	}
+	stored, err := rt.Secrets.Get("agent_session:a1-localhost")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored != "newtok" {
+		t.Fatalf("expected rotated token to be stored, got: %q", stored)
 	}
 	out.Reset()
 
@@ -93,7 +117,7 @@ func TestAgentsLoginWithoutSavedSessionFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "agents token create") {
+	if !strings.Contains(err.Error(), "agents register") {
 		t.Fatalf("expected agent session selection error, got: %v", err)
 	}
 }
@@ -344,22 +368,53 @@ func TestVersionCommand(t *testing.T) {
 
 func TestAgentsTokenCreateStoresSessionAfterVerification(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/agents/home" {
+		if r.URL.Path != "/api/key" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("unexpected method: %s", r.Method)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer oldtok" {
+			t.Fatalf("expected old session token to mint new key, got: %q", got)
+		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"agent":{"username":"noel-agent"}}`))
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"api_key":{"id":8,"name":"cli-issued","scopes":["books:write"]},"token":"newtok"}`))
 	}))
 	defer s.Close()
 
 	rt, out, _, _ := testRuntime(t)
+	if err := rt.SaveConfig(config.File{
+		ActiveAgentSession: "noel-agent-local",
+		AgentSessions: map[string]config.AgentSession{
+			"noel-agent-local": {
+				Name:          "noel-agent-local",
+				BaseURL:       s.URL,
+				AgentUsername: "noel-agent",
+				TokenRef:      "agent_session:noel-agent-local",
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.Secrets.Set("agent_session:noel-agent-local", "oldtok"); err != nil {
+		t.Fatal(err)
+	}
+
 	root := NewRootCmdWithRuntime(rt)
-	err := exec(t, root, "agents", "token", "create", "--base-url", s.URL, "--agent", "noel-agent", "--token", "tok")
+	err := exec(t, root, "agents", "token", "create", "--base-url", s.URL, "--agent", "noel-agent")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "token_created: true") {
 		t.Fatalf("expected token create output, got: %s", out.String())
+	}
+	got, err := rt.Secrets.Get("agent_session:noel-agent-local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "newtok" {
+		t.Fatalf("expected minted token to be stored, got: %q", got)
 	}
 }
 

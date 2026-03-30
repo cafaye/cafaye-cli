@@ -31,7 +31,7 @@ func (r *Runtime) ActiveAgentSession(cfg config.File, explicit string) (config.A
 		name = cfg.ActiveAgentSession
 	}
 	if name == "" {
-		return config.AgentSession{}, fmt.Errorf("no active agent session set; run: cafaye agents token create --agent <username> --base-url <url> --token <token>")
+		return config.AgentSession{}, fmt.Errorf("no active agent session set; run: cafaye agents register --base-url <url> --name <name> or cafaye agents login --agent <username>")
 	}
 	session, ok := cfg.AgentSessions[name]
 	if !ok {
