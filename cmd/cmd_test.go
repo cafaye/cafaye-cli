@@ -14,6 +14,7 @@ import (
 	"github.com/cafaye/cafaye-cli/internal/cli"
 	"github.com/cafaye/cafaye-cli/internal/config"
 	"github.com/cafaye/cafaye-cli/internal/creds"
+	"github.com/cafaye/cafaye-cli/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -350,17 +351,17 @@ func TestUpdateCheckReturnsLatestReleasePayload(t *testing.T) {
 	if err := exec(t, root, "update", "--check"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `"latest_version": "9.9.9"`) {
-		t.Fatalf("expected latest_version in output, got: %s", out.String())
+	if !strings.Contains(out.String(), "Checking latest release...") {
+		t.Fatalf("expected human update check header, got: %s", out.String())
 	}
-	if !strings.Contains(out.String(), `"update_available": true`) {
-		t.Fatalf("expected update_available in output, got: %s", out.String())
+	if !strings.Contains(out.String(), "Current version: v") {
+		t.Fatalf("expected current version in output, got: %s", out.String())
 	}
-	if strings.Contains(out.String(), "deprecated_commands") {
-		t.Fatalf("expected stale fields to be omitted, got: %s", out.String())
+	if !strings.Contains(out.String(), "Latest version: v9.9.9") {
+		t.Fatalf("expected latest version in output, got: %s", out.String())
 	}
-	if strings.Contains(out.String(), "minimum_supported_version") {
-		t.Fatalf("expected minimum_supported_version to be omitted, got: %s", out.String())
+	if !strings.Contains(out.String(), "Update available.") {
+		t.Fatalf("expected update availability in output, got: %s", out.String())
 	}
 }
 
@@ -375,8 +376,73 @@ func TestUpdateCheckUsesSemverComparison(t *testing.T) {
 	if err := exec(t, root, "update", "--check"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `"update_available": false`) {
-		t.Fatalf("expected downgrade to not be update_available, got: %s", out.String())
+	if !strings.Contains(out.String(), "Up to date.") {
+		t.Fatalf("expected up-to-date output, got: %s", out.String())
+	}
+}
+
+func TestUpdateCheckJSONModeReturnsLatestReleasePayload(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+
+	prev := fetchLatestVersionFn
+	fetchLatestVersionFn = func() (string, error) { return "v9.9.9", nil }
+	defer func() { fetchLatestVersionFn = prev }()
+
+	if err := exec(t, root, "update", "--check", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"latest_version": "9.9.9"`) {
+		t.Fatalf("expected latest_version in json output, got: %s", out.String())
+	}
+	if !strings.Contains(out.String(), `"update_available": true`) {
+		t.Fatalf("expected update_available in json output, got: %s", out.String())
+	}
+	if strings.Contains(out.String(), "Checking latest release...") {
+		t.Fatalf("expected no human prelude in json mode, got: %s", out.String())
+	}
+}
+
+func TestUpdateDefaultWhenAlreadyCurrentIsHumanReadable(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+
+	prevFetch := fetchLatestVersionFn
+	fetchLatestVersionFn = func() (string, error) { return "v" + version.Current, nil }
+	defer func() { fetchLatestVersionFn = prevFetch }()
+
+	if err := exec(t, root, "update"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Already up to date.") {
+		t.Fatalf("expected already-up-to-date message, got: %s", out.String())
+	}
+}
+
+func TestUpdateDefaultUsesBrewWithHumanOutput(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+
+	prevFetch := fetchLatestVersionFn
+	prevDetect := detectBrewInstallFn
+	prevBrew := runBrewUpgradeFn
+	fetchLatestVersionFn = func() (string, error) { return "v9.9.9", nil }
+	detectBrewInstallFn = func() bool { return true }
+	runBrewUpgradeFn = func() error { return nil }
+	defer func() {
+		fetchLatestVersionFn = prevFetch
+		detectBrewInstallFn = prevDetect
+		runBrewUpgradeFn = prevBrew
+	}()
+
+	if err := exec(t, root, "update"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Updating via Homebrew...") {
+		t.Fatalf("expected brew update message, got: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "Update complete: v9.9.9") {
+		t.Fatalf("expected completion message, got: %s", out.String())
 	}
 }
 

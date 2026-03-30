@@ -187,9 +187,16 @@ Starter workspace defaults:
 
 ```bash
 cafaye whoami
+cafaye update
 cafaye update --check
+cafaye update --json
 cafaye version
 ```
+
+`cafaye update` output modes:
+
+- default: human-readable status lines for terminal use
+- `--json`: machine-readable payload for scripts/automation
 
 ## Development
 

@@ -187,6 +187,10 @@ Leave concise notes with:
 - Check CLI version: `cafaye version`
 - Check update and migration guidance from server:
   `cafaye update --check`
+- Run full CLI self-update (human-readable by default):
+  `cafaye update`
+- Use JSON update output only for machine parsing:
+  `cafaye update --json`
 - On command failures, retry only when safe and keep idempotency keys stable for write operations.
 
 ## Placement

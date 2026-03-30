@@ -25,48 +25,73 @@ var (
 
 func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 	var checkOnly bool
+	var jsonOutput bool
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update CLI to latest release (runs check first)",
 		Example: `  cafaye update
-  cafaye update --check`,
+  cafaye update --check
+  cafaye update --json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			latestVersion, err := fetchLatestVersionFn()
 			if err != nil {
 				return fmt.Errorf("update check: %w", err)
 			}
 
+			updateAvailable := isUpdateAvailable(version.Current, latestVersion)
+			currentVersion := normalizeVersion(version.Current)
+			latestVersionNormalized := normalizeVersion(latestVersion)
+
 			result := map[string]any{
-				"current_version": version.Current,
-				"latest_version":  normalizeVersion(latestVersion),
+				"current_version": currentVersion,
+				"latest_version":  latestVersionNormalized,
 			}
 			if checkOnly {
 				result["mode"] = "check"
-				result["update_available"] = isUpdateAvailable(version.Current, latestVersion)
-				result["up_to_date"] = !result["update_available"].(bool)
-				return printJSON(cmd.OutOrStdout(), result)
+				result["update_available"] = updateAvailable
+				result["up_to_date"] = !updateAvailable
+				if jsonOutput {
+					return printJSON(cmd.OutOrStdout(), result)
+				}
+				printUpdateHumanCheck(cmd.OutOrStdout(), currentVersion, latestVersionNormalized, updateAvailable)
+				return nil
 			}
 
-			updateAvailable := isUpdateAvailable(version.Current, latestVersion)
 			result["mode"] = "update"
 			result["update_available"] = updateAvailable
 			result["up_to_date"] = !updateAvailable
 			if !updateAvailable {
 				result["updated"] = false
 				result["message"] = "already up to date"
-				return printJSON(cmd.OutOrStdout(), result)
+				if jsonOutput {
+					return printJSON(cmd.OutOrStdout(), result)
+				}
+				printUpdateHumanCheck(cmd.OutOrStdout(), currentVersion, latestVersionNormalized, false)
+				fmt.Fprintln(cmd.OutOrStdout(), "Already up to date.")
+				return nil
 			}
 
+			if !jsonOutput {
+				printUpdateHumanCheck(cmd.OutOrStdout(), currentVersion, latestVersionNormalized, true)
+			}
 			if detectBrewInstallFn() {
 				if err := runBrewUpgradeFn(); err != nil {
 					result["updated"] = false
 					result["method"] = "brew"
 					result["error"] = err.Error()
-					return printJSON(cmd.OutOrStdout(), result)
+					if jsonOutput {
+						return printJSON(cmd.OutOrStdout(), result)
+					}
+					return fmt.Errorf("update failed (brew): %w", err)
 				}
 				result["updated"] = true
 				result["method"] = "brew"
-				return printJSON(cmd.OutOrStdout(), result)
+				if jsonOutput {
+					return printJSON(cmd.OutOrStdout(), result)
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), "Updating via Homebrew...")
+				fmt.Fprintf(cmd.OutOrStdout(), "Update complete: v%s\n", latestVersionNormalized)
+				return nil
 			}
 
 			if err := runInstallerUpgradeFn(); err != nil {
@@ -74,15 +99,35 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 				result["method"] = "install-script"
 				result["error"] = err.Error()
 				result["next_step"] = "if installed with Homebrew, run: brew upgrade cafaye/cafaye-cli/cafaye"
-				return printJSON(cmd.OutOrStdout(), result)
+				if jsonOutput {
+					return printJSON(cmd.OutOrStdout(), result)
+				}
+				return fmt.Errorf("update failed (install-script): %w", err)
 			}
 			result["updated"] = true
 			result["method"] = "install-script"
-			return printJSON(cmd.OutOrStdout(), result)
+			if jsonOutput {
+				return printJSON(cmd.OutOrStdout(), result)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Updating via install script...")
+			fmt.Fprintf(cmd.OutOrStdout(), "Update complete: v%s\n", latestVersionNormalized)
+			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Check only; do not perform update")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Emit machine-readable JSON output")
 	return cmd
+}
+
+func printUpdateHumanCheck(w io.Writer, currentVersion, latestVersion string, updateAvailable bool) {
+	fmt.Fprintln(w, "Checking latest release...")
+	fmt.Fprintf(w, "Current version: v%s\n", currentVersion)
+	fmt.Fprintf(w, "Latest version: v%s\n", latestVersion)
+	if updateAvailable {
+		fmt.Fprintln(w, "Update available.")
+	} else {
+		fmt.Fprintln(w, "Up to date.")
+	}
 }
 
 func fetchLatestVersion() (string, error) {
