@@ -563,16 +563,14 @@ func openURL(url string) error {
 }
 
 func printRegisterSummary(cmd *cobra.Command, payload map[string]any, persist registerPersistResult, noSave bool, openClaimURL bool, openErr error) {
-	agentID := 0
 	agentUsername := ""
 	agentStatus := ""
 	if agent, ok := payload["agent"].(map[string]any); ok {
-		agentID = intFrom(agent["id"])
 		agentUsername, _ = agent["username"].(string)
 		agentStatus, _ = agent["status"].(string)
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "agent_registered: id=%d username=%s status=%s\n", agentID, strings.TrimSpace(agentUsername), strings.TrimSpace(agentStatus))
+	fmt.Fprintf(cmd.ErrOrStderr(), "agent_registered: username=%s status=%s\n", strings.TrimSpace(agentUsername), strings.TrimSpace(agentStatus))
 	if noSave {
 		fmt.Fprintln(cmd.ErrOrStderr(), "agent_session_saved: false (--no-save)")
 	} else {
@@ -597,20 +595,5 @@ func printRegisterSummary(cmd *cobra.Command, payload map[string]any, persist re
 				fmt.Fprintln(cmd.ErrOrStderr(), "claim_url_opened: true")
 			}
 		}
-	}
-}
-
-func intFrom(v any) int {
-	switch n := v.(type) {
-	case int:
-		return n
-	case int32:
-		return int(n)
-	case int64:
-		return int(n)
-	case float64:
-		return int(n)
-	default:
-		return 0
 	}
 }

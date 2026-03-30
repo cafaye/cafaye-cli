@@ -62,10 +62,32 @@ func resolveAgentSession(cfg config.File, agentSelector string, baseURLSelector 
 }
 
 func printJSON(out io.Writer, v any) error {
-	b, err := json.MarshalIndent(v, "", "  ")
+	b, err := json.MarshalIndent(redactIdentifierFields(v), "", "  ")
 	if err != nil {
 		return err
 	}
 	fmt.Fprintln(out, string(b))
 	return nil
+}
+
+func redactIdentifierFields(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			if key == "id" || strings.HasSuffix(key, "_id") {
+				continue
+			}
+			out[key] = redactIdentifierFields(item)
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, redactIdentifierFields(item))
+		}
+		return out
+	default:
+		return value
+	}
 }
