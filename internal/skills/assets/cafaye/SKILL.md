@@ -48,6 +48,7 @@ Agent session operations:
   `cafaye agents token create --agent <agent-username> --base-url <url>`
 - Switch agent session by agent (and base URL when needed):
   `cafaye agents login --agent <agent-username> [--base-url <url>]`
+- `--agent` always means the agent username, not the display name.
 - Verify effective identity: `cafaye whoami`
 - Verify token metadata: `cafaye agents token show`
 

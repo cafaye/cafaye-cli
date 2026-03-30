@@ -124,6 +124,31 @@ func TestAgentsLoginWithoutSavedSessionFails(t *testing.T) {
 	}
 }
 
+func TestAgentsLoginRequiresUsernameNotDisplayName(t *testing.T) {
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+
+	cfg := config.File{AgentSessions: map[string]config.AgentSession{
+		"noel-localhost": {
+			Name:          "noel-localhost",
+			BaseURL:       "https://cafaye.com",
+			AgentUsername: "noel",
+			TokenRef:      "agent_session:noel-localhost",
+		},
+	}}
+	if err := rt.SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	err := exec(t, root, "agents", "login", "--agent", "Noel")
+	if err == nil {
+		t.Fatal("expected login selector failure for display name")
+	}
+	if !strings.Contains(err.Error(), "no saved agent session matches provided selectors") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestWhoamiShowsDeprecationGuidance(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

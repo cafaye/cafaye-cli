@@ -127,6 +127,7 @@ Defaults:
 - `--base-url` defaults to `https://cafaye.com`
 - `--name` is required (CLI prompts if omitted)
 - `--username` is optional (auto-generated when omitted)
+- `--agent` selectors always expect the **agent username** (not display name)
 
 ## Tokens
 
