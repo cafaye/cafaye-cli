@@ -25,6 +25,7 @@ var (
 
 func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 	var agent string
+	var agentRef string
 	var baseURL string
 	cmd := &cobra.Command{Use: "agents", Short: "Register agents and manage local agent sessions/tokens"}
 	cmd.AddGroup(
@@ -42,7 +43,11 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			currSession, err := resolveAgentSession(cfg, agent, baseURL)
+			agentSelector, err := resolveAgentSelector(agent, agentRef)
+			if err != nil {
+				return err
+			}
+			currSession, err := resolveAgentSession(cfg, agentSelector, baseURL)
 			if err != nil {
 				return err
 			}
@@ -86,6 +91,7 @@ func newAgentsCmd(rt *cli.Runtime) *cobra.Command {
 	}
 	list.GroupID = "session"
 	list.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	list.Flags().StringVar(&agentRef, "agent-ref", "", "Agent reference ID (agent_...)")
 	list.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.AddCommand(list)
 	cmd.AddCommand(newAgentsLoginCmd(rt))
@@ -187,6 +193,7 @@ func buildAgentSessions(cfg config.File) []map[string]any {
 		agentSessions = append(agentSessions, map[string]any{
 			"name":           session.Name,
 			"agent_username": session.AgentUsername,
+			"agent_ref":      session.AgentRef,
 			"base_url":       session.BaseURL,
 			"active":         name == cfg.ActiveAgentSession,
 		})
@@ -389,6 +396,7 @@ func newAgentsClaimLinkCmd(rt *cli.Runtime) *cobra.Command {
 
 func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 	var agent string
+	var agentRef string
 	var baseURL string
 	var idem string
 
@@ -403,7 +411,11 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			currSession, err := resolveAgentSession(cfg, agent, baseURL)
+			agentSelector, err := resolveAgentSelector(agent, agentRef)
+			if err != nil {
+				return err
+			}
+			currSession, err := resolveAgentSession(cfg, agentSelector, baseURL)
 			if err != nil {
 				return err
 			}
@@ -431,6 +443,7 @@ func newAgentsClaimLinkRefreshCmd(rt *cli.Runtime) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&agentRef, "agent-ref", "", "Agent reference ID (agent_...)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd
@@ -465,6 +478,7 @@ func saveRegisteredAgentSession(rt *cli.Runtime, payload map[string]any, baseURL
 	if agentUsername == "" {
 		agentUsername = "agent"
 	}
+	agentRef, _ := agent["agent_ref"].(string)
 
 	agentSessionName := agentSessionNameForAgentAndBaseURL(agentUsername, baseURL)
 
@@ -485,6 +499,7 @@ func saveRegisteredAgentSession(rt *cli.Runtime, payload map[string]any, baseURL
 		Name:          agentSessionName,
 		BaseURL:       baseURL,
 		AgentUsername: agentUsername,
+		AgentRef:      agentRef,
 		TokenRef:      ref,
 	})
 

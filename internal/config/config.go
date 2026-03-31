@@ -11,6 +11,7 @@ type AgentSession struct {
 	Name          string `json:"name"`
 	BaseURL       string `json:"base_url"`
 	AgentUsername string `json:"agent_username"`
+	AgentRef      string `json:"agent_ref,omitempty"`
 	TokenRef      string `json:"token_ref"`
 }
 

@@ -42,7 +42,7 @@ func resolveAgentSession(cfg config.File, agentSelector string, baseURLSelector 
 
 	matches := make([]config.AgentSession, 0)
 	for _, session := range cfg.AgentSessions {
-		if session.AgentUsername != agentSelector {
+		if session.AgentUsername != agentSelector && session.AgentRef != agentSelector {
 			continue
 		}
 		if baseURLSelector != "" && session.BaseURL != baseURLSelector {
@@ -59,6 +59,18 @@ func resolveAgentSession(cfg config.File, agentSelector string, baseURLSelector 
 		return config.AgentSession{}, fmt.Errorf("multiple agent sessions match agent %q; provide --base-url", agentSelector)
 	}
 	return matches[0], nil
+}
+
+func resolveAgentSelector(agentUsername string, agentRef string) (string, error) {
+	username := strings.TrimSpace(agentUsername)
+	ref := strings.TrimSpace(agentRef)
+	if username != "" && ref != "" {
+		return "", fmt.Errorf("choose exactly one agent selector\n  pass either --agent <username> or --agent-ref <agent_ref>")
+	}
+	if ref != "" {
+		return ref, nil
+	}
+	return username, nil
 }
 
 func printJSON(out io.Writer, v any) error {

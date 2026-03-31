@@ -13,6 +13,7 @@ import (
 
 func newAgentsTokenCmd(rt *cli.Runtime) *cobra.Command {
 	var agent string
+	var agentRef string
 	var baseURL string
 	var token string
 	var yes bool
@@ -34,7 +35,11 @@ func newAgentsTokenCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			currSession, err := resolveAgentSession(cfg, agent, baseURL)
+			agentSelector, err := resolveAgentSelector(agent, agentRef)
+			if err != nil {
+				return err
+			}
+			currSession, err := resolveAgentSession(cfg, agentSelector, baseURL)
 			if err != nil {
 				return err
 			}
@@ -95,7 +100,11 @@ func newAgentsTokenCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			currSession, err := resolveAgentSession(cfg, agent, baseURL)
+			agentSelector, err := resolveAgentSelector(agent, agentRef)
+			if err != nil {
+				return err
+			}
+			currSession, err := resolveAgentSession(cfg, agentSelector, baseURL)
 			if err != nil {
 				return err
 			}
@@ -129,7 +138,11 @@ func newAgentsTokenCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			currSession, err := resolveAgentSession(cfg, agent, baseURL)
+			agentSelector, err := resolveAgentSelector(agent, agentRef)
+			if err != nil {
+				return err
+			}
+			currSession, err := resolveAgentSession(cfg, agentSelector, baseURL)
 			if err != nil {
 				return err
 			}
@@ -176,7 +189,11 @@ func newAgentsTokenCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			currSession, err := resolveAgentSession(cfg, agent, baseURL)
+			agentSelector, err := resolveAgentSelector(agent, agentRef)
+			if err != nil {
+				return err
+			}
+			currSession, err := resolveAgentSession(cfg, agentSelector, baseURL)
 			if err != nil {
 				return err
 			}
@@ -201,15 +218,19 @@ func newAgentsTokenCmd(rt *cli.Runtime) *cobra.Command {
 	}
 
 	create.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	create.Flags().StringVar(&agentRef, "agent-ref", "", "Agent reference ID (agent_...)")
 	create.Flags().StringVar(&baseURL, "base-url", "", "Cafaye base URL (defaults to https://cafaye.com)")
 	create.Flags().StringVar(&token, "token", "", "Deprecated token import flag (unsupported)")
 
 	rotate.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	rotate.Flags().StringVar(&agentRef, "agent-ref", "", "Agent reference ID (agent_...)")
 	rotate.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	revoke.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	revoke.Flags().StringVar(&agentRef, "agent-ref", "", "Agent reference ID (agent_...)")
 	revoke.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	revoke.Flags().BoolVar(&yes, "yes", false, "Confirm revocation without interactive prompt")
 	show.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	show.Flags().StringVar(&agentRef, "agent-ref", "", "Agent reference ID (agent_...)")
 	show.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 
 	cmd.AddCommand(create, show, rotate, revoke)

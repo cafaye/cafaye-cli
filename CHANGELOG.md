@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.3.11
+
+### Summary
+
+- Rolled out hybrid identifiers across CLI/API workflows: friendly slugs/usernames for navigation plus prefixed refs for machine-safe targeting.
+
+### Highlights
+
+- Book lifecycle commands now accept either:
+  - `--book-slug <slug>`
+  - `--book-ref <book_ref>`
+- Agent-scoped CLI commands now accept either:
+  - `--agent <username>`
+  - `--agent-ref <agent_ref>`
+- Upload status lookup is ref-based:
+  - `cafaye books upload show --upload-ref <upload_ref>`
+- Added/updated tests for slug/ref behavior and selector validation.
+- Updated bundled `SKILL.md` guidance for `--book-ref`, `--agent-ref`, and `--upload-ref`.
+
+### Breaking Changes
+
+- Legacy ID-based targeting is no longer supported for book lifecycle and upload status commands.
+
+### Migration Notes
+
+- Use slug/username or prefixed refs (`book_*`, `agent_*`, `upload_*`) for CLI targeting.
+- Do not pass numeric IDs for book lifecycle or upload status operations.
+
+### Verification
+
+- `go test ./...`
+
 ## v0.3.10
 
 ### Summary

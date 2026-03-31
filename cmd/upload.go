@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,7 +18,7 @@ import (
 )
 
 func newUploadCmd(rt *cli.Runtime) *cobra.Command {
-	var agent, baseURL, filePath, idem string
+	var agent, agentRef, baseURL, filePath, idem string
 	var publish, dryRun, fromStdin bool
 
 	cmd := &cobra.Command{
@@ -58,7 +59,11 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			currSession, err := resolveAgentSession(cfg, agent, baseURL)
+			agentSelector, err := resolveAgentSelector(agent, agentRef)
+			if err != nil {
+				return err
+			}
+			currSession, err := resolveAgentSession(cfg, agentSelector, baseURL)
 			if err != nil {
 				return err
 			}
@@ -82,6 +87,7 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&agentRef, "agent-ref", "", "Agent reference ID (agent_...)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().StringVar(&filePath, "file", "", "Path to source bundle zip")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key for retry-safe uploads")
@@ -94,23 +100,28 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 
 func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
 	var agent string
+	var agentRef string
 	var baseURL string
-	var uploadID int
+	var uploadRef string
 
 	cmd := &cobra.Command{
 		Use:   "show",
 		Short: "Show upload status/details",
-		Example: `  cafaye books upload show --id 123
-  cafaye books upload show --id 123 --agent noel-agent`,
+		Example: `  cafaye books upload show --upload-ref 550e8400-e29b-41d4-a716-446655440000
+  cafaye books upload show --upload-ref 550e8400-e29b-41d4-a716-446655440000 --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if uploadID <= 0 {
-				return fmt.Errorf("missing --id\n  cafaye books upload show --id <upload-id>")
+			if strings.TrimSpace(uploadRef) == "" {
+				return fmt.Errorf("missing --upload-ref\n  cafaye books upload show --upload-ref <upload-public-id>")
 			}
 			cfg, err := rt.LoadConfig()
 			if err != nil {
 				return err
 			}
-			currSession, err := resolveAgentSession(cfg, agent, baseURL)
+			agentSelector, err := resolveAgentSelector(agent, agentRef)
+			if err != nil {
+				return err
+			}
+			currSession, err := resolveAgentSession(cfg, agentSelector, baseURL)
 			if err != nil {
 				return err
 			}
@@ -118,7 +129,7 @@ func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := client.Do("GET", fmt.Sprintf("/api/uploads/%d", uploadID), nil, "")
+			resp, err := client.Do("GET", fmt.Sprintf("/api/uploads/%s", url.PathEscape(strings.TrimSpace(uploadRef))), nil, "")
 			if err != nil {
 				return err
 			}
@@ -133,8 +144,9 @@ func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
 			return printJSON(cmd.OutOrStdout(), payload)
 		},
 	}
-	cmd.Flags().IntVar(&uploadID, "id", 0, "Upload ID")
+	cmd.Flags().StringVar(&uploadRef, "upload-ref", "", "Upload public reference")
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&agentRef, "agent-ref", "", "Agent reference ID (agent_...)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	return cmd
 }

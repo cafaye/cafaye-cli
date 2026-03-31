@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -223,18 +224,21 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
-	var agent, baseURL, title, subtitle, author, theme, idem string
-	var bookID int
+	var agent, baseURL, title, subtitle, author, theme, tagsCSV, primaryTag, idem string
+	var bookSlug, bookRef string
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update book metadata",
-		Example: `  cafaye books update --book-id 42 --title "Updated Title"
-  cafaye books update --book-id 42 --subtitle "New subtitle" --theme amber`,
+		Example: `  cafaye books update --book-slug the-cafaye-manual --title "Updated Title"
+  cafaye books update --book-slug the-cafaye-manual --subtitle "New subtitle" --theme amber
+  cafaye books update --book-slug the-cafaye-manual --tags "cafaye manual,publishing" --primary-tag "cafaye manual"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if bookID <= 0 {
-				return fmt.Errorf("missing --book-id\n  cafaye books update --book-id <id> [flags]")
+			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
+			if err != nil {
+				return err
 			}
 			book := map[string]any{}
+			tagsBook := map[string]any{}
 			if title != "" {
 				book["title"] = title
 			}
@@ -247,39 +251,73 @@ func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			if theme != "" {
 				book["theme"] = theme
 			}
-			if len(book) == 0 {
-				return fmt.Errorf("no updates provided\n  cafaye books update --book-id <id> --title <title>")
+			if strings.TrimSpace(tagsCSV) != "" {
+				parts := strings.Split(tagsCSV, ",")
+				tagNames := make([]string, 0, len(parts))
+				for _, part := range parts {
+					trimmed := strings.TrimSpace(part)
+					if trimmed != "" {
+						tagNames = append(tagNames, trimmed)
+					}
+				}
+				if len(tagNames) == 0 {
+					return fmt.Errorf("no valid tags parsed from --tags")
+				}
+				tagsBook["tag_names"] = tagNames
 			}
-			return runBookWrite(rt, cmd, agent, baseURL, idem, "PATCH", fmt.Sprintf("/api/books/%d", bookID), map[string]any{"book": book}, "books update")
+			if strings.TrimSpace(primaryTag) != "" {
+				tagsBook["primary_tag"] = strings.TrimSpace(primaryTag)
+			}
+			if len(book) == 0 && len(tagsBook) == 0 {
+				return fmt.Errorf("no updates provided\n  cafaye books update --book-slug <slug> --title <title> | --tags \"tag1,tag2\"")
+			}
+
+			escapedSlug := url.PathEscape(bookIdentifier)
+
+			if len(book) > 0 {
+				if err := runBookWrite(rt, cmd, agent, baseURL, idem, "PATCH", fmt.Sprintf("/api/books/%s", escapedSlug), map[string]any{"book": book}, "books update"); err != nil {
+					return err
+				}
+			}
+
+			if len(tagsBook) > 0 {
+				return runBookWrite(rt, cmd, agent, baseURL, idem, "PATCH", fmt.Sprintf("/api/books/%s/tags", escapedSlug), map[string]any{"book": tagsBook}, "books update tags")
+			}
+
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
-	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
+	cmd.Flags().StringVar(&bookSlug, "book-slug", "", "Book slug")
+	cmd.Flags().StringVar(&bookRef, "book-ref", "", "Book reference ID (book_...)")
 	cmd.Flags().StringVar(&title, "title", "", "Book title")
 	cmd.Flags().StringVar(&subtitle, "subtitle", "", "Book subtitle")
 	cmd.Flags().StringVar(&author, "author", "", "Book author")
 	cmd.Flags().StringVar(&theme, "theme", "", "Book theme")
+	cmd.Flags().StringVar(&tagsCSV, "tags", "", "Comma-separated tags")
+	cmd.Flags().StringVar(&primaryTag, "primary-tag", "", "Primary tag (must match an updated or existing tag)")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd
 }
 
 func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 	var agent, baseURL, filePath, idem string
-	var bookID int
+	var bookSlug, bookRef string
 	var remove bool
 
 	cmd := &cobra.Command{
 		Use:   "cover",
 		Short: "Upload or remove a book cover",
-		Example: `  cafaye books cover --book-id 42 --file ./cover.webp
-  cafaye books cover --book-id 42 --remove`,
+		Example: `  cafaye books cover --book-slug the-cafaye-manual --file ./cover.webp
+  cafaye books cover --book-slug the-cafaye-manual --remove`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if bookID <= 0 {
-				return fmt.Errorf("missing --book-id\n  cafaye books cover --book-id <id> --file <path> | --remove")
+			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
+			if err != nil {
+				return err
 			}
 			if !remove && filePath == "" {
-				return fmt.Errorf("missing --file or --remove\n  cafaye books cover --book-id <id> --file <path> | --remove")
+				return fmt.Errorf("missing --file or --remove\n  cafaye books cover --book-slug <slug> --file <path> | --remove")
 			}
 			if remove && filePath != "" {
 				return fmt.Errorf("choose one of --file or --remove")
@@ -296,7 +334,7 @@ func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := uploadBookCover(currSession.BaseURL, token, bookID, filePath, remove, idem)
+			resp, err := uploadBookCover(currSession.BaseURL, token, bookIdentifier, filePath, remove, idem)
 			if err != nil {
 				return err
 			}
@@ -313,7 +351,8 @@ func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
-	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
+	cmd.Flags().StringVar(&bookSlug, "book-slug", "", "Book slug")
+	cmd.Flags().StringVar(&bookRef, "book-ref", "", "Book reference ID (book_...)")
 	cmd.Flags().StringVar(&filePath, "file", "", "Cover image path")
 	cmd.Flags().BoolVar(&remove, "remove", false, "Remove current cover")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
@@ -322,61 +361,71 @@ func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 
 func newBooksRevisionsCmd(rt *cli.Runtime) *cobra.Command {
 	var agent, baseURL string
-	var bookID int
+	var bookSlug, bookRef string
 	cmd := &cobra.Command{
 		Use:   "revisions",
 		Short: "List book revisions",
-		Example: `  cafaye books revisions --book-id 42
-  cafaye books revisions --book-id 42 --agent noel-agent`,
+		Example: `  cafaye books revisions --book-slug the-cafaye-manual
+  cafaye books revisions --book-slug the-cafaye-manual --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if bookID <= 0 {
-				return fmt.Errorf("missing --book-id\n  cafaye books revisions --book-id <id>")
+			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
+			if err != nil {
+				return err
 			}
-			return runBookRead(rt, cmd, agent, baseURL, fmt.Sprintf("/api/books/%d/revisions", bookID), "books revisions")
+			return runBookRead(rt, cmd, agent, baseURL, fmt.Sprintf("/api/books/%s/revisions", url.PathEscape(bookIdentifier)), "books revisions")
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
-	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
+	cmd.Flags().StringVar(&bookSlug, "book-slug", "", "Book slug")
+	cmd.Flags().StringVar(&bookRef, "book-ref", "", "Book reference ID (book_...)")
 	return cmd
 }
 
 func newBooksRevisionCmd(rt *cli.Runtime) *cobra.Command {
 	var agent, baseURL string
-	var bookID, revisionID int
+	var bookSlug, bookRef string
+	var revisionNumber int
 	cmd := &cobra.Command{
 		Use:     "revision",
 		Short:   "Show a single revision",
-		Example: `  cafaye books revision --book-id 42 --revision-id 7`,
+		Example: `  cafaye books revision --book-slug the-cafaye-manual --revision-number 7`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if bookID <= 0 || revisionID <= 0 {
-				return fmt.Errorf("missing required flags\n  cafaye books revision --book-id <id> --revision-id <id>")
+			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
+			if err != nil {
+				return err
 			}
-			return runBookRead(rt, cmd, agent, baseURL, fmt.Sprintf("/api/books/%d/revisions/%d", bookID, revisionID), "books revision")
+			if revisionNumber <= 0 {
+				return fmt.Errorf("missing required flags\n  cafaye books revision --book-slug <slug>|--book-ref <book_ref> --revision-number <n>")
+			}
+			return runBookRead(rt, cmd, agent, baseURL, fmt.Sprintf("/api/books/%s/revisions/%d", url.PathEscape(bookIdentifier), revisionNumber), "books revision")
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
-	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
-	cmd.Flags().IntVar(&revisionID, "revision-id", 0, "Revision ID")
+	cmd.Flags().StringVar(&bookSlug, "book-slug", "", "Book slug")
+	cmd.Flags().StringVar(&bookRef, "book-ref", "", "Book reference ID (book_...)")
+	cmd.Flags().IntVar(&revisionNumber, "revision-number", 0, "Revision number")
 	return cmd
 }
 
 func newBooksPricingCmd(rt *cli.Runtime) *cobra.Command {
 	var agent, baseURL, pricingType, currency, idem string
-	var bookID, priceCents int
+	var bookSlug, bookRef string
+	var priceCents int
 
 	cmd := &cobra.Command{
 		Use:   "pricing",
 		Short: "Set pricing for a book",
-		Example: `  cafaye books pricing --book-id 42 --pricing-type free
-  cafaye books pricing --book-id 42 --pricing-type paid --price-cents 1200 --price-currency USD`,
+		Example: `  cafaye books pricing --book-slug the-cafaye-manual --pricing-type free
+  cafaye books pricing --book-slug the-cafaye-manual --pricing-type paid --price-cents 1200 --price-currency USD`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if bookID <= 0 {
-				return fmt.Errorf("missing --book-id\n  cafaye books pricing --book-id <id> --pricing-type <free|paid>")
+			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
+			if err != nil {
+				return err
 			}
 			if pricingType == "" {
-				return fmt.Errorf("missing --pricing-type\n  cafaye books pricing --book-id <id> --pricing-type <free|paid>")
+				return fmt.Errorf("missing --pricing-type\n  cafaye books pricing --book-slug <slug> --pricing-type <free|paid>")
 			}
 
 			body := map[string]any{
@@ -390,12 +439,13 @@ func newBooksPricingCmd(rt *cli.Runtime) *cobra.Command {
 			if currency != "" {
 				body["book"].(map[string]any)["price_currency"] = currency
 			}
-			return runBookWrite(rt, cmd, agent, baseURL, idem, "PATCH", fmt.Sprintf("/api/books/%d/pricing", bookID), body, "books pricing")
+			return runBookWrite(rt, cmd, agent, baseURL, idem, "PATCH", fmt.Sprintf("/api/books/%s/pricing", url.PathEscape(bookIdentifier)), body, "books pricing")
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
-	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
+	cmd.Flags().StringVar(&bookSlug, "book-slug", "", "Book slug")
+	cmd.Flags().StringVar(&bookRef, "book-ref", "", "Book reference ID (book_...)")
 	cmd.Flags().StringVar(&pricingType, "pricing-type", "", "Pricing type (free or paid)")
 	cmd.Flags().IntVar(&priceCents, "price-cents", 0, "Price in cents")
 	cmd.Flags().StringVar(&currency, "price-currency", "", "Price currency code (e.g. USD)")
@@ -405,49 +455,72 @@ func newBooksPricingCmd(rt *cli.Runtime) *cobra.Command {
 
 func newBooksPublishCmd(rt *cli.Runtime) *cobra.Command {
 	var agent, baseURL, idem string
-	var bookID, revisionID int
+	var bookSlug, bookRef string
+	var revisionNumber int
 
 	cmd := &cobra.Command{
 		Use:   "publish",
 		Short: "Publish a specific revision",
-		Example: `  cafaye books publish --book-id 42 --revision-id 7
-  cafaye books publish --book-id 42 --revision-id 7 --idempotency-key run-publish-42-7`,
+		Example: `  cafaye books publish --book-slug the-cafaye-manual --revision-number 7
+  cafaye books publish --book-slug the-cafaye-manual --revision-number 7 --idempotency-key run-publish-manual-7`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if bookID <= 0 || revisionID <= 0 {
-				return fmt.Errorf("missing required flags\n  cafaye books publish --book-id <id> --revision-id <id>")
+			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
+			if err != nil {
+				return err
 			}
-			return runBookWrite(rt, cmd, agent, baseURL, idem, "POST", fmt.Sprintf("/api/books/%d/publish", bookID), map[string]any{"revision_id": revisionID}, "books publish")
+			if revisionNumber <= 0 {
+				return fmt.Errorf("missing required flags\n  cafaye books publish --book-slug <slug>|--book-ref <book_ref> --revision-number <n>")
+			}
+			return runBookWrite(rt, cmd, agent, baseURL, idem, "POST", fmt.Sprintf("/api/books/%s/publish", url.PathEscape(bookIdentifier)), map[string]any{"revision_number": revisionNumber}, "books publish")
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
-	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
-	cmd.Flags().IntVar(&revisionID, "revision-id", 0, "Revision ID to publish")
+	cmd.Flags().StringVar(&bookSlug, "book-slug", "", "Book slug")
+	cmd.Flags().StringVar(&bookRef, "book-ref", "", "Book reference ID (book_...)")
+	cmd.Flags().IntVar(&revisionNumber, "revision-number", 0, "Revision number to publish")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd
 }
 
 func newBooksUnpublishCmd(rt *cli.Runtime) *cobra.Command {
 	var agent, baseURL, idem string
-	var bookID int
+	var bookSlug, bookRef string
 
 	cmd := &cobra.Command{
 		Use:   "unpublish",
 		Short: "Unpublish a book",
-		Example: `  cafaye books unpublish --book-id 42
-  cafaye books unpublish --book-id 42 --idempotency-key run-unpublish-42`,
+		Example: `  cafaye books unpublish --book-slug the-cafaye-manual
+  cafaye books unpublish --book-slug the-cafaye-manual --idempotency-key run-unpublish-manual`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if bookID <= 0 {
-				return fmt.Errorf("missing --book-id\n  cafaye books unpublish --book-id <id>")
+			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
+			if err != nil {
+				return err
 			}
-			return runBookWrite(rt, cmd, agent, baseURL, idem, "POST", fmt.Sprintf("/api/books/%d/unpublish", bookID), map[string]any{}, "books unpublish")
+			return runBookWrite(rt, cmd, agent, baseURL, idem, "POST", fmt.Sprintf("/api/books/%s/unpublish", url.PathEscape(bookIdentifier)), map[string]any{}, "books unpublish")
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
-	cmd.Flags().IntVar(&bookID, "book-id", 0, "Book ID")
+	cmd.Flags().StringVar(&bookSlug, "book-slug", "", "Book slug")
+	cmd.Flags().StringVar(&bookRef, "book-ref", "", "Book reference ID (book_...)")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd
+}
+
+func resolveBookIdentifier(bookSlug string, bookRef string) (string, error) {
+	slug := strings.TrimSpace(bookSlug)
+	ref := strings.TrimSpace(bookRef)
+	if slug == "" && ref == "" {
+		return "", fmt.Errorf("missing book identifier\n  pass one of: --book-slug <slug> or --book-ref <book_ref>")
+	}
+	if slug != "" && ref != "" {
+		return "", fmt.Errorf("choose exactly one book identifier\n  pass either --book-slug <slug> or --book-ref <book_ref>")
+	}
+	if ref != "" {
+		return ref, nil
+	}
+	return slug, nil
 }
 
 func runBookRead(rt *cli.Runtime, cmd *cobra.Command, agent string, baseURL string, path string, op string) error {
@@ -509,7 +582,7 @@ func runBookWrite(rt *cli.Runtime, cmd *cobra.Command, agent string, baseURL str
 	return printJSON(cmd.OutOrStdout(), payload)
 }
 
-func uploadBookCover(baseURL string, token string, bookID int, filePath string, remove bool, idem string) (api.Response, error) {
+func uploadBookCover(baseURL string, token string, bookSlug string, filePath string, remove bool, idem string) (api.Response, error) {
 	if idem == "" {
 		idem = fmt.Sprintf("run-books-cover-%d", time.Now().UnixNano())
 	}
@@ -543,7 +616,7 @@ func uploadBookCover(baseURL string, token string, bookID int, filePath string, 
 		}
 	}()
 
-	req, err := http.NewRequest(http.MethodPut, strings.TrimRight(baseURL, "/")+fmt.Sprintf("/api/books/%d/cover", bookID), bodyReader)
+	req, err := http.NewRequest(http.MethodPut, strings.TrimRight(baseURL, "/")+fmt.Sprintf("/api/books/%s/cover", url.PathEscape(strings.TrimSpace(bookSlug))), bodyReader)
 	if err != nil {
 		return api.Response{}, err
 	}

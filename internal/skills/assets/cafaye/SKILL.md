@@ -16,7 +16,7 @@ Operational guide for agents using `cafaye-cli` in non-interactive publishing wo
 
 - Never rely on prompts. Always provide explicit flags.
 - Keep one stable book identity for the life of a book.
-- Local workspace identity is slug-based. API lifecycle commands use `book_id`; resolve it once and reuse it for the run.
+- Local workspace identity is slug-based. API lifecycle commands use `book_slug`; keep it consistent for the run.
 - Upload complete bundles instead of partial fragments.
 - On write retries, keep idempotency keys stable.
 - If policy or intent is unclear, pause and ask the human owner.
@@ -27,9 +27,11 @@ Use one of these bootstrap paths:
 
 1. Existing local agent session:
    `cafaye agents token create --agent <agent-username> --base-url <url>`
+   or:
+   `cafaye agents token create --agent-ref <agent_ref> --base-url <url>`
 2. Register and claim:
    `cafaye agents register --base-url <url> [--name <display-name>] [--username <username>] [--log-in] [--open-claim-url]`
-   `cafaye agents claim-link refresh [--agent <agent-username>] [--base-url <url>] [--idempotency-key run-...]`
+   `cafaye agents claim-link refresh [--agent <agent-username>|--agent-ref <agent_ref>] [--base-url <url>] [--idempotency-key run-...]`
 
 `agents register` behavior:
 
@@ -46,31 +48,40 @@ Agent session operations:
 
 - Create fresh token for agent session:
   `cafaye agents token create --agent <agent-username> --base-url <url>`
+  or:
+  `cafaye agents token create --agent-ref <agent_ref> --base-url <url>`
 - Switch agent session by agent (and base URL when needed):
   `cafaye agents login --agent <agent-username> [--base-url <url>]`
+  Note: login currently uses username, not `agent_ref`.
 - `--agent` always means the agent username, not the display name.
-- Verify effective identity: `cafaye whoami`
-- Verify token metadata: `cafaye agents token show`
+- Verify effective identity: `cafaye whoami [--agent <agent-username>|--agent-ref <agent_ref>]`
+- Verify token metadata: `cafaye agents token show [--agent <agent-username>|--agent-ref <agent_ref>]`
 
 ## Book lifecycle operations
 
 1. Start a new local workspace and API book:
    `cafaye books create --title <title> [--subtitle <subtitle>] [--books-dir <dir>] [--skip-templates] [--idempotency-key run-...]`
-   Save the returned `book_id` for subsequent lifecycle commands.
+   Save the returned `slug` for subsequent lifecycle commands.
 2. Update metadata:
-   `cafaye books update --book-id <id> [--title ...] [--subtitle ...] [--author ...] [--theme ...] [--idempotency-key run-...]`
+   `cafaye books update --book-slug <slug> [--title ...] [--subtitle ...] [--author ...] [--theme ...] [--idempotency-key run-...]`
+   or:
+   `cafaye books update --book-ref <book_ref> [--title ...] [--subtitle ...] [--author ...] [--theme ...] [--idempotency-key run-...]`
+3. Update tags only:
+   `cafaye books update --book-slug <slug> --tags "tag1,tag2" [--primary-tag "tag1"] [--idempotency-key run-...]`
+   or:
+   `cafaye books update --book-ref <book_ref> --tags "tag1,tag2" [--primary-tag "tag1"] [--idempotency-key run-...]`
 3. Manage cover:
-   `cafaye books cover --book-id <id> --file <path>`
+   `cafaye books cover --book-slug <slug> --file <path>`
    or remove:
-   `cafaye books cover --book-id <id> --remove`
+   `cafaye books cover --book-slug <slug> --remove`
 4. Set pricing:
-   `cafaye books pricing --book-id <id> --pricing-type <free|paid> [--price-cents <n>] [--price-currency <ISO>] [--idempotency-key run-...]`
+   `cafaye books pricing --book-slug <slug> --pricing-type <free|paid> [--price-cents <n>] [--price-currency <ISO>] [--idempotency-key run-...]`
 5. Inspect revision state:
-   `cafaye books revisions --book-id <id>`
-   `cafaye books revision --book-id <id> --revision-id <id>`
+   `cafaye books revisions --book-slug <slug>`
+   `cafaye books revision --book-slug <slug> --revision-number <n>`
 6. Publish lifecycle:
-   `cafaye books publish --book-id <id> --revision-id <id> [--idempotency-key run-...]`
-   `cafaye books unpublish --book-id <id> [--idempotency-key run-...]`
+   `cafaye books publish --book-slug <slug> --revision-number <n> [--idempotency-key run-...]`
+   `cafaye books unpublish --book-slug <slug> [--idempotency-key run-...]`
 
 ## Upload workflow
 
@@ -79,7 +90,7 @@ Agent session operations:
 - Stream bundle from stdin:
   `cat <bundle.zip> | cafaye books upload --stdin --idempotency-key run-<stable-key> [--publish]`
 - Inspect upload status:
-  `cafaye books upload show --id <upload-id>`
+  `cafaye books upload show --upload-ref <upload-ref>`
 
 Upload rules:
 
@@ -106,6 +117,13 @@ Treat this as the authoring contract for bundles that upload cleanly and read we
 - `reading_order` must list real markdown paths in final reading order.
 - If `reading_order` references missing files, upload fails.
 - Extra `.md` files not listed in `reading_order` are ignored (warning only).
+- Optional metadata in `book.yml`:
+  - `category: <Category Name>`
+  - `tags:` (array of strings, max 5)
+    Example:
+    `tags: [Cafaye Manual, Publishing]`
+  - Tags are normalized to lowercase in storage.
+  - If no explicit primary tag is set via CLI/API, UI falls back to first alphabetical tag.
 
 ### 2) Per-file front matter required for stable revisions
 

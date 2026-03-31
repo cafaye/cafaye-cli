@@ -1022,7 +1022,7 @@ func TestTokenRevokeRequiresYes(t *testing.T) {
 
 func TestUploadShow(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/api/uploads/7" {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/uploads/up_7" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -1033,7 +1033,7 @@ func TestUploadShow(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
-	if err := exec(t, root, "books", "upload", "show", "--id", "7"); err != nil {
+	if err := exec(t, root, "books", "upload", "show", "--upload-ref", "up_7"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"status": "applied"`) {
@@ -1043,7 +1043,7 @@ func TestUploadShow(t *testing.T) {
 
 func TestBooksPricing(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch || r.URL.Path != "/api/books/42/pricing" {
+		if r.Method != http.MethodPatch || r.URL.Path != "/api/books/smoke-book/pricing" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		if r.Header.Get("Idempotency-Key") == "" {
@@ -1057,7 +1057,7 @@ func TestBooksPricing(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
-	if err := exec(t, root, "books", "pricing", "--book-id", "42", "--pricing-type", "paid", "--price-cents", "1200"); err != nil {
+	if err := exec(t, root, "books", "pricing", "--book-slug", "smoke-book", "--pricing-type", "paid", "--price-cents", "1200"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"pricing_type": "paid"`) {
@@ -1069,12 +1069,12 @@ func TestBooksPublishAndUnpublish(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/api/books/42/publish":
+		case "/api/books/smoke-book/publish":
 			if r.Method != http.MethodPost {
 				t.Fatalf("unexpected method for publish: %s", r.Method)
 			}
 			_, _ = w.Write([]byte(`{"book":{"id":42,"published":true},"published_revision_id":7}`))
-		case "/api/books/42/unpublish":
+		case "/api/books/smoke-book/unpublish":
 			if r.Method != http.MethodPost {
 				t.Fatalf("unexpected method for unpublish: %s", r.Method)
 			}
@@ -1089,7 +1089,7 @@ func TestBooksPublishAndUnpublish(t *testing.T) {
 	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "books", "publish", "--book-id", "42", "--revision-id", "7"); err != nil {
+	if err := exec(t, root, "books", "publish", "--book-slug", "smoke-book", "--revision-number", "7"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"published": true`) {
@@ -1097,7 +1097,7 @@ func TestBooksPublishAndUnpublish(t *testing.T) {
 	}
 	out.Reset()
 
-	if err := exec(t, root, "books", "unpublish", "--book-id", "42"); err != nil {
+	if err := exec(t, root, "books", "unpublish", "--book-slug", "smoke-book"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"published": false`) {
@@ -1151,9 +1151,11 @@ func TestBooksReadCommands(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/api/books/42/revisions":
+		case "/api/books/smoke-book/revisions":
 			_, _ = w.Write([]byte(`{"revisions":[{"id":7}]}`))
-		case "/api/books/42/revisions/7":
+		case "/api/books/book_abc123/revisions":
+			_, _ = w.Write([]byte(`{"revisions":[{"id":8}]}`))
+		case "/api/books/smoke-book/revisions/7":
 			_, _ = w.Write([]byte(`{"revision":{"id":7}}`))
 		default:
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -1165,15 +1167,24 @@ func TestBooksReadCommands(t *testing.T) {
 	seedAgentSession(t, rt, "p1", s.URL, "tok")
 	root := NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "books", "revisions", "--book-id", "42"); err != nil {
+	if err := exec(t, root, "books", "revisions", "--book-slug", "smoke-book"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"revisions"`) {
 		t.Fatalf("expected revisions payload, got: %s", out.String())
 	}
 	out.Reset()
+	root = NewRootCmdWithRuntime(rt)
 
-	if err := exec(t, root, "books", "revision", "--book-id", "42", "--revision-id", "7"); err != nil {
+	if err := exec(t, root, "books", "revisions", "--book-ref", "book_abc123"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"revisions"`) {
+		t.Fatalf("expected revisions payload for book-ref, got: %s", out.String())
+	}
+	out.Reset()
+
+	if err := exec(t, root, "books", "revision", "--book-slug", "smoke-book", "--revision-number", "7"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"revision"`) {
@@ -1189,9 +1200,9 @@ func TestBooksCreateUpdateAndCover(t *testing.T) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/books":
 			_, _ = w.Write([]byte(`{"book":{"id":42,"slug":"new","title":"New","author":"A"}}`))
-		case r.Method == http.MethodPatch && r.URL.Path == "/api/books/42":
+		case r.Method == http.MethodPatch && r.URL.Path == "/api/books/new":
 			_, _ = w.Write([]byte(`{"book":{"id":42,"title":"Updated"}}`))
-		case r.Method == http.MethodPut && r.URL.Path == "/api/books/42/cover":
+		case r.Method == http.MethodPut && r.URL.Path == "/api/books/new/cover":
 			_, _ = w.Write([]byte(`{"book":{"id":42,"cover_attached":true}}`))
 		default:
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
@@ -1211,7 +1222,7 @@ func TestBooksCreateUpdateAndCover(t *testing.T) {
 	}
 	out.Reset()
 
-	if err := exec(t, root, "books", "update", "--book-id", "42", "--title", "Updated"); err != nil {
+	if err := exec(t, root, "books", "update", "--book-slug", "new", "--title", "Updated"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"title": "Updated"`) {
@@ -1223,7 +1234,7 @@ func TestBooksCreateUpdateAndCover(t *testing.T) {
 	if err := os.WriteFile(tmp, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := exec(t, root, "books", "cover", "--book-id", "42", "--file", tmp); err != nil {
+	if err := exec(t, root, "books", "cover", "--book-slug", "new", "--file", tmp); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"cover_attached": true`) {
@@ -1268,16 +1279,16 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 				t.Fatal("upload missing idempotency key")
 			}
 			_, _ = w.Write([]byte(`{"upload":{"id":9,"book_id":42,"status":"applied"}}`))
-		case r.Method == http.MethodGet && r.URL.Path == "/api/uploads/9":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/uploads/up_9":
 			_, _ = w.Write([]byte(`{"upload":{"id":9,"status":"applied","book_id":42}}`))
-		case r.Method == http.MethodGet && r.URL.Path == "/api/books/42/revisions":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/books/smoke-book/revisions":
 			_, _ = w.Write([]byte(`{"revisions":[{"id":7}],"current_draft_revision_id":7,"published_revision_id":null}`))
-		case r.Method == http.MethodPost && r.URL.Path == "/api/books/42/publish":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/books/smoke-book/publish":
 			if r.Header.Get("Idempotency-Key") == "" {
 				t.Fatal("publish missing idempotency key")
 			}
 			_, _ = w.Write([]byte(`{"book":{"id":42,"published":true},"published_revision_id":7}`))
-		case r.Method == http.MethodPost && r.URL.Path == "/api/books/42/unpublish":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/books/smoke-book/unpublish":
 			if r.Header.Get("Idempotency-Key") == "" {
 				t.Fatal("unpublish missing idempotency key")
 			}
@@ -1308,16 +1319,16 @@ func TestAgentWorkflowSmoke(t *testing.T) {
 	if err := exec(t, root, "books", "upload", "--file", zipPath, "--idempotency-key", "run-upload-smoke"); err != nil {
 		t.Fatal(err)
 	}
-	if err := exec(t, root, "books", "upload", "show", "--id", "9"); err != nil {
+	if err := exec(t, root, "books", "upload", "show", "--upload-ref", "up_9"); err != nil {
 		t.Fatal(err)
 	}
-	if err := exec(t, root, "books", "revisions", "--book-id", "42"); err != nil {
+	if err := exec(t, root, "books", "revisions", "--book-slug", "smoke-book"); err != nil {
 		t.Fatal(err)
 	}
-	if err := exec(t, root, "books", "publish", "--book-id", "42", "--revision-id", "7", "--idempotency-key", "run-publish-smoke"); err != nil {
+	if err := exec(t, root, "books", "publish", "--book-slug", "smoke-book", "--revision-number", "7", "--idempotency-key", "run-publish-smoke"); err != nil {
 		t.Fatal(err)
 	}
-	if err := exec(t, root, "books", "unpublish", "--book-id", "42", "--idempotency-key", "run-unpublish-smoke"); err != nil {
+	if err := exec(t, root, "books", "unpublish", "--book-slug", "smoke-book", "--idempotency-key", "run-unpublish-smoke"); err != nil {
 		t.Fatal(err)
 	}
 

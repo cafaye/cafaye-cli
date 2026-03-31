@@ -9,6 +9,7 @@ import (
 
 func newWhoAmICmd(rt *cli.Runtime) *cobra.Command {
 	var agent string
+	var agentRef string
 	var baseURL string
 	cmd := &cobra.Command{
 		Use:   "whoami",
@@ -21,7 +22,11 @@ func newWhoAmICmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			currSession, err := resolveAgentSession(cfg, agent, baseURL)
+			agentSelector, err := resolveAgentSelector(agent, agentRef)
+			if err != nil {
+				return err
+			}
+			currSession, err := resolveAgentSession(cfg, agentSelector, baseURL)
 			if err != nil {
 				return err
 			}
@@ -45,6 +50,7 @@ func newWhoAmICmd(rt *cli.Runtime) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&agentRef, "agent-ref", "", "Agent reference ID (agent_...)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	return cmd
 }
