@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.3.12
+
+### Summary
+
+- Added explicit book merchandising metadata support (`blurb` + `synopsis`) and standardized metadata edits under one canonical command: `cafaye books update`.
+
+### Highlights
+
+- `cafaye books update` now supports:
+  - `--blurb`
+  - `--synopsis`
+  - `--language-code`
+  - `--category-id`
+- Removed per-field metadata commands in favor of the single update flow.
+- Starter `book.yml` templates now include:
+  - `subtitle`
+  - `blurb`
+  - `synopsis`
+- Updated CLI README and bundled Cafaye skill guidance for the new metadata model and commands.
+- Added CLI test coverage for individual metadata commands and endpoints.
+
+### Verification
+
+- `go test ./...`
+
 ## v0.3.11
 
 ### Summary

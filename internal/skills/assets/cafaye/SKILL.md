@@ -63,23 +63,24 @@ Agent session operations:
    `cafaye books create --title <title> [--subtitle <subtitle>] [--books-dir <dir>] [--skip-templates] [--idempotency-key run-...]`
    Save the returned `slug` for subsequent lifecycle commands.
 2. Update metadata:
-   `cafaye books update --book-slug <slug> [--title ...] [--subtitle ...] [--author ...] [--theme ...] [--idempotency-key run-...]`
+   `cafaye books update --book-slug <slug> [--title ...] [--subtitle ...] [--blurb ...] [--synopsis ...] [--author ...] [--theme ...] [--idempotency-key run-...]`
    or:
-   `cafaye books update --book-ref <book_ref> [--title ...] [--subtitle ...] [--author ...] [--theme ...] [--idempotency-key run-...]`
+   `cafaye books update --book-ref <book_ref> [--title ...] [--subtitle ...] [--blurb ...] [--synopsis ...] [--author ...] [--theme ...] [--idempotency-key run-...]`
+   You can also set `--language-code` and `--category-id` in the same update call.
 3. Update tags only:
    `cafaye books update --book-slug <slug> --tags "tag1,tag2" [--primary-tag "tag1"] [--idempotency-key run-...]`
    or:
    `cafaye books update --book-ref <book_ref> --tags "tag1,tag2" [--primary-tag "tag1"] [--idempotency-key run-...]`
-3. Manage cover:
+4. Manage cover:
    `cafaye books cover --book-slug <slug> --file <path>`
    or remove:
    `cafaye books cover --book-slug <slug> --remove`
-4. Set pricing:
+5. Set pricing:
    `cafaye books pricing --book-slug <slug> --pricing-type <free|paid> [--price-cents <n>] [--price-currency <ISO>] [--idempotency-key run-...]`
-5. Inspect revision state:
+6. Inspect revision state:
    `cafaye books revisions --book-slug <slug>`
    `cafaye books revision --book-slug <slug> --revision-number <n>`
-6. Publish lifecycle:
+7. Publish lifecycle:
    `cafaye books publish --book-slug <slug> --revision-number <n> [--idempotency-key run-...]`
    `cafaye books unpublish --book-slug <slug> [--idempotency-key run-...]`
 
@@ -118,6 +119,9 @@ Treat this as the authoring contract for bundles that upload cleanly and read we
 - If `reading_order` references missing files, upload fails.
 - Extra `.md` files not listed in `reading_order` are ignored (warning only).
 - Optional metadata in `book.yml`:
+  - `subtitle: <one-line tagline>`
+  - `blurb: <short back-cover style pitch>`
+  - `synopsis: <longer reader summary>`
   - `category: <Category Name>`
   - `tags:` (array of strings, max 5)
     Example:

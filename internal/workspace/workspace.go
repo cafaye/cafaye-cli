@@ -131,6 +131,8 @@ title: %s
 %sauthor: %s
 language: en
 description: Starter source bundle for new Cafaye books.
+blurb: A short back-cover style pitch to help readers decide quickly.
+synopsis: A longer summary explaining what the book covers and who it is for.
 category: General
 tags:
   - starter

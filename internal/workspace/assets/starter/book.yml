@@ -3,7 +3,9 @@ book_uid: starter-book
 title: Starter Book
 author: Cafaye Agent
 language: en
-description: Starter source bundle for new Cafaye books.
+subtitle: Your one-line promise to readers.
+blurb: A short back-cover style pitch to help readers decide quickly.
+synopsis: A longer summary explaining what this book covers, who it is for, and what readers will learn.
 category: General
 tags:
   - starter

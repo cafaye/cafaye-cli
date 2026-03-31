@@ -97,7 +97,7 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
-	var agent, baseURL, title, subtitle, theme, booksDir, idem string
+	var agent, baseURL, title, subtitle, blurb, synopsis, theme, booksDir, idem string
 	var skipTemplates bool
 	var everyoneAccess bool
 	cmd := &cobra.Command{
@@ -129,6 +129,8 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 				"book": map[string]any{
 					"title":           title,
 					"subtitle":        subtitle,
+					"blurb":           blurb,
+					"synopsis":        synopsis,
 					"theme":           theme,
 					"everyone_access": everyoneAccess,
 				},
@@ -215,6 +217,8 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
 	cmd.Flags().StringVar(&title, "title", "", "Book title")
 	cmd.Flags().StringVar(&subtitle, "subtitle", "", "Book subtitle")
+	cmd.Flags().StringVar(&blurb, "blurb", "", "Book blurb (short pitch)")
+	cmd.Flags().StringVar(&synopsis, "synopsis", "", "Book synopsis (long summary)")
 	cmd.Flags().StringVar(&theme, "theme", "", "Book theme")
 	cmd.Flags().BoolVar(&everyoneAccess, "everyone-access", false, "Whether everyone can access this book")
 	cmd.Flags().BoolVar(&skipTemplates, "skip-templates", false, "Create workspace folder without starter template files")
@@ -224,13 +228,15 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 }
 
 func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
-	var agent, baseURL, title, subtitle, author, theme, tagsCSV, primaryTag, idem string
+	var agent, baseURL, title, subtitle, blurb, synopsis, author, theme, languageCode, tagsCSV, primaryTag, idem string
+	var categoryID int
 	var bookSlug, bookRef string
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update book metadata",
 		Example: `  cafaye books update --book-slug the-cafaye-manual --title "Updated Title"
-  cafaye books update --book-slug the-cafaye-manual --subtitle "New subtitle" --theme amber
+  cafaye books update --book-slug the-cafaye-manual --subtitle "New subtitle" --blurb "Short pitch" --synopsis "Long summary" --theme amber
+  cafaye books update --book-slug the-cafaye-manual --language-code en --category-id 2
   cafaye books update --book-slug the-cafaye-manual --tags "cafaye manual,publishing" --primary-tag "cafaye manual"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
@@ -245,11 +251,23 @@ func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			if subtitle != "" {
 				book["subtitle"] = subtitle
 			}
+			if blurb != "" {
+				book["blurb"] = blurb
+			}
+			if synopsis != "" {
+				book["synopsis"] = synopsis
+			}
 			if author != "" {
 				book["author"] = author
 			}
 			if theme != "" {
 				book["theme"] = theme
+			}
+			if strings.TrimSpace(languageCode) != "" {
+				book["language_code"] = strings.TrimSpace(languageCode)
+			}
+			if categoryID > 0 {
+				book["category_id"] = categoryID
 			}
 			if strings.TrimSpace(tagsCSV) != "" {
 				parts := strings.Split(tagsCSV, ",")
@@ -293,8 +311,12 @@ func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.Flags().StringVar(&bookRef, "book-ref", "", "Book reference ID (book_...)")
 	cmd.Flags().StringVar(&title, "title", "", "Book title")
 	cmd.Flags().StringVar(&subtitle, "subtitle", "", "Book subtitle")
+	cmd.Flags().StringVar(&blurb, "blurb", "", "Book blurb (short pitch)")
+	cmd.Flags().StringVar(&synopsis, "synopsis", "", "Book synopsis (long summary)")
 	cmd.Flags().StringVar(&author, "author", "", "Book author")
 	cmd.Flags().StringVar(&theme, "theme", "", "Book theme")
+	cmd.Flags().StringVar(&languageCode, "language-code", "", "Language code (e.g. en, sw)")
+	cmd.Flags().IntVar(&categoryID, "category-id", 0, "Category ID")
 	cmd.Flags().StringVar(&tagsCSV, "tags", "", "Comma-separated tags")
 	cmd.Flags().StringVar(&primaryTag, "primary-tag", "", "Primary tag (must match an updated or existing tag)")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
