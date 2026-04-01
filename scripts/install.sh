@@ -96,3 +96,5 @@ fi
 echo "Installed ${BIN_NAME} to ${INSTALL_DIR}/${BIN_NAME}"
 "${INSTALL_DIR}/${BIN_NAME}" --help >/dev/null
 "${INSTALL_DIR}/${BIN_NAME}" version 2>/dev/null || true
+"${INSTALL_DIR}/${BIN_NAME}" skills install >/dev/null
+echo "Installed version-matched Cafaye skill to default books root"

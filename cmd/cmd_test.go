@@ -14,7 +14,6 @@ import (
 	"github.com/cafaye/cafaye-cli/internal/cli"
 	"github.com/cafaye/cafaye-cli/internal/config"
 	"github.com/cafaye/cafaye-cli/internal/creds"
-	"github.com/cafaye/cafaye-cli/internal/skills"
 	"github.com/cafaye/cafaye-cli/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -434,15 +433,15 @@ func TestUpdateDefaultWhenAlreadyCurrentIsHumanReadable(t *testing.T) {
 	root := NewRootCmdWithRuntime(rt)
 
 	prevFetch := fetchLatestVersionFn
-	prevSkill := ensureDefaultSkillFn
+	prevSync := syncInstalledSkillFn
 	called := 0
 	fetchLatestVersionFn = func() (string, error) { return "v" + version.Current, nil }
-	ensureDefaultSkillFn = func() (skills.InstallResult, error) {
+	syncInstalledSkillFn = func() (string, error) {
 		called++
-		return skills.InstallResult{Path: "/tmp/skills/cafaye/SKILL.md", Updated: false}, nil
+		return "/usr/local/bin/cafaye", nil
 	}
 	defer func() { fetchLatestVersionFn = prevFetch }()
-	defer func() { ensureDefaultSkillFn = prevSkill }()
+	defer func() { syncInstalledSkillFn = prevSync }()
 
 	if err := exec(t, root, "update"); err != nil {
 		t.Fatal(err)
@@ -462,20 +461,20 @@ func TestUpdateDefaultUsesBrewWithHumanOutput(t *testing.T) {
 	prevFetch := fetchLatestVersionFn
 	prevDetect := detectBrewInstallFn
 	prevBrew := runBrewUpgradeFn
-	prevSkill := ensureDefaultSkillFn
+	prevSync := syncInstalledSkillFn
 	called := 0
 	fetchLatestVersionFn = func() (string, error) { return "v9.9.9", nil }
 	detectBrewInstallFn = func() bool { return true }
 	runBrewUpgradeFn = func() error { return nil }
-	ensureDefaultSkillFn = func() (skills.InstallResult, error) {
+	syncInstalledSkillFn = func() (string, error) {
 		called++
-		return skills.InstallResult{Path: "/tmp/skills/cafaye/SKILL.md", Updated: true}, nil
+		return "/usr/local/bin/cafaye", nil
 	}
 	defer func() {
 		fetchLatestVersionFn = prevFetch
 		detectBrewInstallFn = prevDetect
 		runBrewUpgradeFn = prevBrew
-		ensureDefaultSkillFn = prevSkill
+		syncInstalledSkillFn = prevSync
 	}()
 
 	if err := exec(t, root, "update"); err != nil {
@@ -511,26 +510,6 @@ func TestVersionFlagAlias(t *testing.T) {
 	}
 	if strings.TrimSpace(out.String()) == "" {
 		t.Fatal("expected version output")
-	}
-}
-
-func TestRootCommandSyncsDefaultSkillOnStartup(t *testing.T) {
-	rt, _, _, _ := testRuntime(t)
-	root := NewRootCmdWithRuntime(rt)
-
-	prev := ensureDefaultSkillOnStartupFn
-	called := 0
-	ensureDefaultSkillOnStartupFn = func() (skills.InstallResult, error) {
-		called++
-		return skills.InstallResult{Path: "/tmp/skills/cafaye/SKILL.md", Updated: true}, nil
-	}
-	defer func() { ensureDefaultSkillOnStartupFn = prev }()
-
-	if err := exec(t, root, "version"); err != nil {
-		t.Fatal(err)
-	}
-	if called != 1 {
-		t.Fatalf("expected startup skill sync once, got %d", called)
 	}
 }
 

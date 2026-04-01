@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/cafaye/cafaye-cli/internal/cli"
-	"github.com/cafaye/cafaye-cli/internal/skills"
 	"github.com/cafaye/cafaye-cli/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +21,7 @@ var (
 	runBrewUpgradeFn      = runBrewUpgrade
 	runInstallerUpgradeFn = runInstallerUpgrade
 	fetchLatestVersionFn  = fetchLatestVersion
-	ensureDefaultSkillFn  = skills.EnsureDefaultInstalled
+	syncInstalledSkillFn  = syncInstalledSkill
 )
 
 func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
@@ -63,12 +62,11 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			result["update_available"] = updateAvailable
 			result["up_to_date"] = !updateAvailable
 			if !updateAvailable {
-				skillRes, err := ensureDefaultSkillFn()
+				skillSyncPath, err := syncInstalledSkillFn()
 				if err != nil {
 					return fmt.Errorf("sync skill: %w", err)
 				}
-				result["skill_path"] = skillRes.Path
-				result["skill_updated"] = skillRes.Updated
+				result["skill_sync_cmd"] = skillSyncPath + " skills install"
 				result["updated"] = false
 				result["message"] = "already up to date"
 				if jsonOutput {
@@ -92,12 +90,11 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 					}
 					return fmt.Errorf("update failed (brew): %w", err)
 				}
-				skillRes, err := ensureDefaultSkillFn()
+				skillSyncPath, err := syncInstalledSkillFn()
 				if err != nil {
 					return fmt.Errorf("sync skill: %w", err)
 				}
-				result["skill_path"] = skillRes.Path
-				result["skill_updated"] = skillRes.Updated
+				result["skill_sync_cmd"] = skillSyncPath + " skills install"
 				result["updated"] = true
 				result["method"] = "brew"
 				if jsonOutput {
@@ -118,12 +115,11 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 				}
 				return fmt.Errorf("update failed (install-script): %w", err)
 			}
-			skillRes, err := ensureDefaultSkillFn()
+			skillSyncPath, err := syncInstalledSkillFn()
 			if err != nil {
 				return fmt.Errorf("sync skill: %w", err)
 			}
-			result["skill_path"] = skillRes.Path
-			result["skill_updated"] = skillRes.Updated
+			result["skill_sync_cmd"] = skillSyncPath + " skills install"
 			result["updated"] = true
 			result["method"] = "install-script"
 			if jsonOutput {
@@ -137,6 +133,19 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Check only; do not perform update")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Emit machine-readable JSON output")
 	return cmd
+}
+
+func syncInstalledSkill() (string, error) {
+	binPath, err := osExec.LookPath("cafaye")
+	if err != nil {
+		return "", fmt.Errorf("resolve installed cafaye binary: %w", err)
+	}
+	cmd := osExec.Command(binPath, "skills", "install")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("run %q: %w (output: %s)", binPath+" skills install", err, strings.TrimSpace(string(out)))
+	}
+	return binPath, nil
 }
 
 func printUpdateHumanCheck(w io.Writer, currentVersion, latestVersion string, updateAvailable bool) {
