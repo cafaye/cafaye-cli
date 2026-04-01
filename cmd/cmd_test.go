@@ -514,6 +514,26 @@ func TestVersionFlagAlias(t *testing.T) {
 	}
 }
 
+func TestRootCommandSyncsDefaultSkillOnStartup(t *testing.T) {
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+
+	prev := ensureDefaultSkillOnStartupFn
+	called := 0
+	ensureDefaultSkillOnStartupFn = func() (skills.InstallResult, error) {
+		called++
+		return skills.InstallResult{Path: "/tmp/skills/cafaye/SKILL.md", Updated: true}, nil
+	}
+	defer func() { ensureDefaultSkillOnStartupFn = prev }()
+
+	if err := exec(t, root, "version"); err != nil {
+		t.Fatal(err)
+	}
+	if called != 1 {
+		t.Fatalf("expected startup skill sync once, got %d", called)
+	}
+}
+
 func TestAgentsTokenCreateStoresSessionAfterVerification(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/key" {
