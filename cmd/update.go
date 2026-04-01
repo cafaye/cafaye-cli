@@ -22,6 +22,7 @@ var (
 	runInstallerUpgradeFn = runInstallerUpgrade
 	fetchLatestVersionFn  = fetchLatestVersion
 	syncInstalledSkillFn  = syncInstalledSkill
+	getInstalledVersionFn = getInstalledVersion
 )
 
 func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
@@ -88,20 +89,34 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 					if jsonOutput {
 						return printJSON(cmd.OutOrStdout(), result)
 					}
-					return fmt.Errorf("update failed (brew): %w", err)
+						return fmt.Errorf("update failed (brew): %w", err)
+				}
+				installedVersion, err := getInstalledVersionFn()
+				if err != nil {
+					return fmt.Errorf("verify installed version: %w", err)
 				}
 				skillSyncPath, err := syncInstalledSkillFn()
 				if err != nil {
 					return fmt.Errorf("sync skill: %w", err)
 				}
 				result["skill_sync_cmd"] = skillSyncPath + " skills install"
+				result["installed_version"] = installedVersion
+				if isUpdateAvailable(installedVersion, latestVersion) {
+					result["updated"] = false
+					result["method"] = "brew"
+					result["error"] = fmt.Sprintf("homebrew formula is behind latest release (installed: v%s, latest: v%s)", installedVersion, latestVersionNormalized)
+					if jsonOutput {
+						return printJSON(cmd.OutOrStdout(), result)
+					}
+					return fmt.Errorf("update incomplete (brew): homebrew formula is behind latest release (installed: v%s, latest: v%s)", installedVersion, latestVersionNormalized)
+				}
 				result["updated"] = true
 				result["method"] = "brew"
 				if jsonOutput {
 					return printJSON(cmd.OutOrStdout(), result)
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), "Updating via Homebrew...")
-				fmt.Fprintf(cmd.OutOrStdout(), "Update complete: v%s\n", latestVersionNormalized)
+				fmt.Fprintf(cmd.OutOrStdout(), "Update complete: v%s\n", installedVersion)
 				return nil
 			}
 
@@ -119,14 +134,27 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("sync skill: %w", err)
 			}
+			installedVersion, err := getInstalledVersionFn()
+			if err != nil {
+				return fmt.Errorf("verify installed version: %w", err)
+			}
 			result["skill_sync_cmd"] = skillSyncPath + " skills install"
+			result["installed_version"] = installedVersion
 			result["updated"] = true
 			result["method"] = "install-script"
+			if isUpdateAvailable(installedVersion, latestVersion) {
+				result["updated"] = false
+				result["error"] = fmt.Sprintf("installed version is behind latest release (installed: v%s, latest: v%s)", installedVersion, latestVersionNormalized)
+				if jsonOutput {
+					return printJSON(cmd.OutOrStdout(), result)
+				}
+				return fmt.Errorf("update incomplete (install-script): installed version is behind latest release (installed: v%s, latest: v%s)", installedVersion, latestVersionNormalized)
+			}
 			if jsonOutput {
 				return printJSON(cmd.OutOrStdout(), result)
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "Updating via install script...")
-			fmt.Fprintf(cmd.OutOrStdout(), "Update complete: v%s\n", latestVersionNormalized)
+			fmt.Fprintf(cmd.OutOrStdout(), "Update complete: v%s\n", installedVersion)
 			return nil
 		},
 	}
@@ -146,6 +174,23 @@ func syncInstalledSkill() (string, error) {
 		return "", fmt.Errorf("run %q: %w (output: %s)", binPath+" skills install", err, strings.TrimSpace(string(out)))
 	}
 	return binPath, nil
+}
+
+func getInstalledVersion() (string, error) {
+	binPath, err := osExec.LookPath("cafaye")
+	if err != nil {
+		return "", fmt.Errorf("resolve installed cafaye binary: %w", err)
+	}
+	cmd := osExec.Command(binPath, "version")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("run %q: %w (output: %s)", binPath+" version", err, strings.TrimSpace(string(out)))
+	}
+	v := normalizeVersion(strings.TrimSpace(string(out)))
+	if v == "" {
+		return "", fmt.Errorf("empty installed version from %q", binPath+" version")
+	}
+	return v, nil
 }
 
 func printUpdateHumanCheck(w io.Writer, currentVersion, latestVersion string, updateAvailable bool) {

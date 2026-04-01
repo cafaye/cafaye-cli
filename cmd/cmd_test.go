@@ -462,6 +462,7 @@ func TestUpdateDefaultUsesBrewWithHumanOutput(t *testing.T) {
 	prevDetect := detectBrewInstallFn
 	prevBrew := runBrewUpgradeFn
 	prevSync := syncInstalledSkillFn
+	prevInstalledVersion := getInstalledVersionFn
 	called := 0
 	fetchLatestVersionFn = func() (string, error) { return "v9.9.9", nil }
 	detectBrewInstallFn = func() bool { return true }
@@ -470,11 +471,13 @@ func TestUpdateDefaultUsesBrewWithHumanOutput(t *testing.T) {
 		called++
 		return "/usr/local/bin/cafaye", nil
 	}
+	getInstalledVersionFn = func() (string, error) { return "9.9.9", nil }
 	defer func() {
 		fetchLatestVersionFn = prevFetch
 		detectBrewInstallFn = prevDetect
 		runBrewUpgradeFn = prevBrew
 		syncInstalledSkillFn = prevSync
+		getInstalledVersionFn = prevInstalledVersion
 	}()
 
 	if err := exec(t, root, "update"); err != nil {
@@ -488,6 +491,37 @@ func TestUpdateDefaultUsesBrewWithHumanOutput(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Update complete: v9.9.9") {
 		t.Fatalf("expected completion message, got: %s", out.String())
+	}
+}
+
+func TestUpdateBrewFailsWhenInstalledVersionStillBehindLatest(t *testing.T) {
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+
+	prevFetch := fetchLatestVersionFn
+	prevDetect := detectBrewInstallFn
+	prevBrew := runBrewUpgradeFn
+	prevSync := syncInstalledSkillFn
+	prevInstalledVersion := getInstalledVersionFn
+	fetchLatestVersionFn = func() (string, error) { return "v9.9.9", nil }
+	detectBrewInstallFn = func() bool { return true }
+	runBrewUpgradeFn = func() error { return nil }
+	syncInstalledSkillFn = func() (string, error) { return "/usr/local/bin/cafaye", nil }
+	getInstalledVersionFn = func() (string, error) { return "0.3.11", nil }
+	defer func() {
+		fetchLatestVersionFn = prevFetch
+		detectBrewInstallFn = prevDetect
+		runBrewUpgradeFn = prevBrew
+		syncInstalledSkillFn = prevSync
+		getInstalledVersionFn = prevInstalledVersion
+	}()
+
+	err := exec(t, root, "update")
+	if err == nil {
+		t.Fatal("expected update to fail when installed brew version remains behind latest release")
+	}
+	if !strings.Contains(err.Error(), "homebrew formula is behind latest release") {
+		t.Fatalf("expected lagging-formula error, got: %v", err)
 	}
 }
 
