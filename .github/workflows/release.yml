@@ -37,7 +37,13 @@ jobs:
           (cd dist && sha256sum cafaye-* > SHA256SUMS)
 
       - name: Cleo release plan
-        run: cleo release plan --version "${GITHUB_REF_NAME}"
+        run: |
+          set -euo pipefail
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists; skipping cleo release plan"
+          else
+            cleo release plan --version "${GITHUB_REF_NAME}"
+          fi
 
       - name: First-tag smoke gate
         run: |
