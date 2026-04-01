@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.3.16
+
+### Summary
+
+- Added explicit upload targeting so create-first workflows can safely attach revisions to the intended existing book.
+
+### Highlights
+
+- `cafaye books upload` now supports:
+  - `--book-slug <slug>`
+  - `--book-ref <book_ref>`
+- Upload command now validates that only one target identifier is passed at a time.
+- Multipart upload requests include target fields so the API can enforce attachment to the intended book.
+- Updated bundled Cafaye agent skill documentation with targeted upload guidance for create-first workflows.
+- Added CLI tests covering:
+  - slug-target upload form field behavior
+  - ref-target upload form field behavior
+  - mutual-exclusion validation for `--book-slug` and `--book-ref`
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- For create-first workflows, prefer:
+  - `cafaye books upload --book-slug <slug> --file <bundle.zip> --idempotency-key run-...`
+  - or `--book-ref <book_ref>` when references are canonical in automation.
+
+### Verification
+
+- `go test ./...`
+
 ## v0.3.15
 
 ### Summary
