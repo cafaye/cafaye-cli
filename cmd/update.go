@@ -89,7 +89,7 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 					if jsonOutput {
 						return printJSON(cmd.OutOrStdout(), result)
 					}
-						return fmt.Errorf("update failed (brew): %w", err)
+					return fmt.Errorf("update failed (brew): %w", err)
 				}
 				installedVersion, err := getInstalledVersionFn()
 				if err != nil {
