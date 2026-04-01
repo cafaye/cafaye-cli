@@ -86,7 +86,11 @@ Agent session operations:
 
 ## Upload workflow
 
-- Upload bundle:
+- Upload bundle to existing book by slug:
+  `cafaye books upload --book-slug <slug> --file <bundle.zip> --idempotency-key run-<stable-key> [--publish]`
+- Upload bundle to existing book by ref:
+  `cafaye books upload --book-ref <book_ref> --file <bundle.zip> --idempotency-key run-<stable-key> [--publish]`
+- Upload bundle without explicit target (server resolves by bundle identity):
   `cafaye books upload --file <bundle.zip> --idempotency-key run-<stable-key> [--publish]`
 - Stream bundle from stdin:
   `cat <bundle.zip> | cafaye books upload --stdin --idempotency-key run-<stable-key> [--publish]`
@@ -96,6 +100,8 @@ Agent session operations:
 Upload rules:
 
 - `--idempotency-key` is mandatory.
+- Pass at most one explicit target: either `--book-slug` or `--book-ref`.
+- Prefer explicit target flags when running create-first workflows to avoid accidental second-book creation.
 - Use stable descriptive keys for retries (for example `run-upload-<slug>-rev-7`).
 - Use `--dry-run` before critical production uploads when validating command construction.
 - For a fresh attempt after fixing a broken bundle, use a new key.

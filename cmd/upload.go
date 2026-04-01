@@ -18,16 +18,21 @@ import (
 )
 
 func newUploadCmd(rt *cli.Runtime) *cobra.Command {
-	var agent, agentRef, baseURL, filePath, idem string
+	var agent, agentRef, baseURL, filePath, idem, bookSlug, bookRef string
 	var publish, dryRun, fromStdin bool
 
 	cmd := &cobra.Command{
 		Use:   "upload",
 		Short: "Upload a source bundle",
 		Example: `  cafaye books upload --agent noel-agent --file ./the-cafaye-manual.zip --idempotency-key run-123
+  cafaye books upload --agent noel-agent --book-slug the-cafaye-manual --file ./the-cafaye-manual.zip --idempotency-key run-124
+  cafaye books upload --agent noel-agent --book-ref book_abc123 --file ./the-cafaye-manual.zip --idempotency-key run-125
   cafaye books upload --agent noel-agent --file ./the-cafaye-manual.zip --publish --idempotency-key run-456
   cat ./the-cafaye-manual.zip | cafaye books upload --agent noel-agent --stdin --publish --idempotency-key run-789`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if strings.TrimSpace(bookSlug) != "" && strings.TrimSpace(bookRef) != "" {
+				return fmt.Errorf("choose exactly one book identifier\n  pass either --book-slug <slug> or --book-ref <book_ref>")
+			}
 			if idem == "" {
 				return fmt.Errorf("missing --idempotency-key\n  cafaye books upload --file <bundle.zip> --idempotency-key <key>")
 			}
@@ -53,6 +58,12 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "dry_run: true")
 				fmt.Fprintf(cmd.OutOrStdout(), "would_upload: %s\n", filePath)
 				fmt.Fprintf(cmd.OutOrStdout(), "publish: %t\n", publish)
+				if strings.TrimSpace(bookSlug) != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "book_slug: %s\n", strings.TrimSpace(bookSlug))
+				}
+				if strings.TrimSpace(bookRef) != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "book_ref: %s\n", strings.TrimSpace(bookRef))
+				}
 				return nil
 			}
 			cfg, err := rt.LoadConfig()
@@ -71,7 +82,7 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := uploadFile(currSession.BaseURL, token, filePath, publish, idem)
+			resp, err := uploadFile(currSession.BaseURL, token, filePath, publish, idem, bookSlug, bookRef)
 			if err != nil {
 				return err
 			}
@@ -89,6 +100,8 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
 	cmd.Flags().StringVar(&agentRef, "agent-ref", "", "Agent reference ID (agent_...)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
+	cmd.Flags().StringVar(&bookSlug, "book-slug", "", "Target existing book by slug")
+	cmd.Flags().StringVar(&bookRef, "book-ref", "", "Target existing book by reference ID (book_...)")
 	cmd.Flags().StringVar(&filePath, "file", "", "Path to source bundle zip")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key for retry-safe uploads")
 	cmd.Flags().BoolVar(&publish, "publish", false, "Publish after successful upload")
@@ -151,7 +164,7 @@ func newUploadShowCmd(rt *cli.Runtime) *cobra.Command {
 	return cmd
 }
 
-func uploadFile(baseURL string, token string, filePath string, publish bool, idem string) (api.Response, error) {
+func uploadFile(baseURL string, token string, filePath string, publish bool, idem string, bookSlug string, bookRef string) (api.Response, error) {
 	if filePath == "" {
 		return api.Response{}, fmt.Errorf("missing --file\n  cafaye books upload --file <bundle.zip> --idempotency-key <key>")
 	}
@@ -176,6 +189,12 @@ func uploadFile(baseURL string, token string, filePath string, publish bool, ide
 			return
 		}
 		_ = mw.WriteField("publish", fmt.Sprintf("%t", publish))
+		if strings.TrimSpace(bookSlug) != "" {
+			_ = mw.WriteField("book_slug", strings.TrimSpace(bookSlug))
+		}
+		if strings.TrimSpace(bookRef) != "" {
+			_ = mw.WriteField("book_ref", strings.TrimSpace(bookRef))
+		}
 	}()
 
 	req, err := http.NewRequest("POST", strings.TrimRight(baseURL, "/")+"/api/uploads", bodyReader)

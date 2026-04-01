@@ -271,6 +271,89 @@ func TestUploadSupportsStdin(t *testing.T) {
 	}
 }
 
+func TestUploadSendsBookSlugField(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/uploads" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if err := r.ParseMultipartForm(4 << 20); err != nil {
+			t.Fatalf("parse multipart: %v", err)
+		}
+		if got := r.FormValue("book_slug"); got != "smoke-book" {
+			t.Fatalf("expected book_slug field, got %q", got)
+		}
+		if got := r.FormValue("book_ref"); got != "" {
+			t.Fatalf("expected empty book_ref field, got %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"upload":{"id":1,"status":"accepted","book_ref":"book_1"}}`))
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+	tmp := filepath.Join(t.TempDir(), "bundle.zip")
+	if err := os.WriteFile(tmp, []byte("zipbytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := exec(t, root, "books", "upload", "--file", tmp, "--book-slug", "smoke-book", "--idempotency-key", "run-12345"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"status": "accepted"`) {
+		t.Fatalf("expected upload payload, got: %s", out.String())
+	}
+}
+
+func TestUploadSendsBookRefField(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/uploads" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if err := r.ParseMultipartForm(4 << 20); err != nil {
+			t.Fatalf("parse multipart: %v", err)
+		}
+		if got := r.FormValue("book_ref"); got != "book_abc123" {
+			t.Fatalf("expected book_ref field, got %q", got)
+		}
+		if got := r.FormValue("book_slug"); got != "" {
+			t.Fatalf("expected empty book_slug field, got %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"upload":{"id":1,"status":"accepted","book_ref":"book_abc123"}}`))
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+	tmp := filepath.Join(t.TempDir(), "bundle.zip")
+	if err := os.WriteFile(tmp, []byte("zipbytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := exec(t, root, "books", "upload", "--file", tmp, "--book-ref", "book_abc123", "--idempotency-key", "run-12345"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"status": "accepted"`) {
+		t.Fatalf("expected upload payload, got: %s", out.String())
+	}
+}
+
+func TestUploadRejectsBothBookSlugAndBookRef(t *testing.T) {
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+
+	err := exec(t, root, "books", "upload", "--file", "bundle.zip", "--book-slug", "smoke-book", "--book-ref", "book_abc123", "--idempotency-key", "run-12345")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "choose exactly one book identifier") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestRootHelpHasExamples(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
