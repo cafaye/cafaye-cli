@@ -16,6 +16,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -47,12 +50,17 @@ jobs:
 
       - name: First-tag smoke gate
         run: |
+          set -euo pipefail
           PRIOR_TAGS=$(git tag --list 'v*' | grep -vx "${GITHUB_REF_NAME}" | wc -l | tr -d ' ')
           echo "prior_tags=${PRIOR_TAGS}"
           if [[ "${PRIOR_TAGS}" == "0" ]]; then
             echo "Running first-tag release smoke checks"
             cleo release list --limit 1 || true
-            cleo release plan --version "${GITHUB_REF_NAME}"
+            if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+              echo "Release ${GITHUB_REF_NAME} already exists; skipping first-tag cleo release plan"
+            else
+              cleo release plan --version "${GITHUB_REF_NAME}"
+            fi
           else
             echo "Not first tag; skipping first-tag smoke gate"
           fi

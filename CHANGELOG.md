@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.3.15
+
+### Summary
+
+- Fixed release workflow tag detection/idempotency so Homebrew tap auto-bump runs reliably.
+
+### Highlights
+
+- Release workflow checkout now fetches full history and tags (`fetch-depth: 0`, `fetch-tags: true`) so first-tag detection is accurate.
+- First-tag smoke gate now skips `cleo release plan` when the release already exists.
+- Prevents false failures that previously stopped the `Update Homebrew tap formula` step.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- No migration required.
+
+### Verification
+
+- `make verify`
+
 ## v0.3.14
 
 ### Summary
