@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.3.14
+
+### Summary
+
+- Stabilized release/tap automation and fixed CLI update verification so version and skill sync behavior is trustworthy.
+
+### Highlights
+
+- `cafaye update` now verifies the actual installed CLI version after upgrade and errors if Homebrew is behind latest release.
+- Release workflow now uses shared `scripts/update-homebrew-formula.sh` for tap updates (single source of truth).
+- Added automated tests for Homebrew formula bump script:
+  - valid tag updates URL + SHA
+  - invalid tag is rejected
+- Release workflow improved idempotency by skipping `cleo release plan` when release already exists.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- Use `cafaye update` for upgrades; it now reports incomplete upgrades when package sources lag.
+- For Homebrew installs/upgrades, if your skill file is outdated, run:
+  - `cafaye skills install`
+
+### Verification
+
+- `make verify`
+
 ## v0.3.13
 
 ### Summary
