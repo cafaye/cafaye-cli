@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.3.13
+
+### Summary
+
+- Hardened release workflows and ensured version-matched Cafaye skill sync on install/update flows.
+
+### Highlights
+
+- Made release workflow idempotent when the GitHub release for a tag already exists.
+- Improved release validation to support both `SHA256SUMS` and legacy `checksums.txt`, with robust linux artifact detection.
+- Upgraded GitHub Actions to Node 24-compatible majors:
+  - `actions/checkout@v6`
+  - `actions/setup-go@v6`
+- Ensured `cafaye update` runs skill sync with the installed CLI binary (`cafaye skills install`) so skill content matches installed CLI version after updates.
+- Added install-time skill sync in the binary installer (`scripts/install.sh`).
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- No manual migration required.
+- For direct Homebrew installs/upgrades, use the updated tap formula with `post_install` skill sync support.
+
+### Verification
+
+- `make verify`
+
 ## v0.3.12
 
 ### Summary
