@@ -7,12 +7,9 @@ import (
 	"github.com/cafaye/cafaye-cli/internal/cli"
 	"github.com/cafaye/cafaye-cli/internal/config"
 	"github.com/cafaye/cafaye-cli/internal/creds"
-	"github.com/cafaye/cafaye-cli/internal/skills"
 	"github.com/cafaye/cafaye-cli/internal/version"
 	"github.com/spf13/cobra"
 )
-
-var ensureDefaultSkillOnStartupFn = skills.EnsureDefaultInstalled
 
 func NewRootCmd() *cobra.Command {
 	cfgPath, _ := config.DefaultPath()
@@ -54,9 +51,6 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 	root.Flags().BoolVar(&showVersion, "version", false, "Print CLI version")
 	root.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
 		rt.ConfigPath = cfgPath
-		if _, err := ensureDefaultSkillOnStartupFn(); err != nil {
-			return fmt.Errorf("sync default skill: %w", err)
-		}
 		return nil
 	}
 	root.SetOut(rt.Out)
