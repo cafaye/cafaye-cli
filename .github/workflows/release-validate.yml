@@ -26,29 +26,31 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          ASSET=$(gh release view "$TAG" --json assets --jq '.assets[].name' | grep -E '^cafaye.*(linux.*amd64|amd64.*linux)' | head -n1)
+          ASSET=$(gh release view "$TAG" --json assets --jq '.assets[].name' | grep -E '^cafaye.*(linux.*amd64|amd64.*linux)' | head -n1 | tr -d '\r')
           if [[ -z "${ASSET}" ]]; then
             echo "No linux/amd64 asset found for ${TAG}"
             gh release view "$TAG" --json assets --jq '.assets[].name'
             exit 1
           fi
           echo "asset=${ASSET}"
-          gh release download "$TAG" --pattern "$ASSET" --dir dist
-          gh release download "$TAG" --pattern "SHA256SUMS" --dir dist
+          gh release download "$TAG" --pattern "*linux*amd64*" --dir dist
+          if gh release download "$TAG" --pattern "SHA256SUMS" --dir dist; then
+            echo "Downloaded SHA256SUMS"
+          elif gh release download "$TAG" --pattern "checksums.txt" --dir dist; then
+            cp dist/checksums.txt dist/SHA256SUMS
+            echo "Using checksums.txt as SHA256SUMS"
+          else
+            echo "No checksum file found for ${TAG}"
+            gh release view "$TAG" --json assets --jq '.assets[].name'
+            exit 1
+          fi
 
       - name: Validate binary runs
         run: |
           set -euo pipefail
-          FILE=$(ls dist | head -n1)
-          if [[ "$FILE" == *.tar.gz ]]; then
-            tar -xzf "dist/$FILE" -C dist
-          fi
-          if [[ "$FILE" == *.zip ]]; then
-            unzip -o "dist/$FILE" -d dist
-          fi
-          BIN=$(find dist -type f -name 'cafaye*' | head -n1)
-          if [[ -z "${BIN}" ]]; then
-            echo "No cafaye binary found in release artifact"
+          FILE=$(find dist -maxdepth 1 -type f -name '*linux*amd64*' | head -n1)
+          if [[ -z "${FILE}" ]]; then
+            echo "No linux/amd64 release artifact found"
             find dist -maxdepth 3 -type f -print
             exit 1
           fi
@@ -57,18 +59,30 @@ jobs:
             find dist -maxdepth 3 -type f -print
             exit 1
           fi
-          BASENAME=$(basename "$BIN")
+          BASENAME=$(basename "$FILE")
           EXPECTED=$(awk -v file="$BASENAME" '$2 == file { print $1 }' dist/SHA256SUMS)
           if [[ -z "${EXPECTED}" ]]; then
             echo "No checksum found for ${BASENAME}"
             cat dist/SHA256SUMS
             exit 1
           fi
-          ACTUAL=$(sha256sum "$BIN" | awk '{print $1}')
+          ACTUAL=$(sha256sum "$FILE" | awk '{print $1}')
           if [[ "${ACTUAL}" != "${EXPECTED}" ]]; then
             echo "Checksum mismatch for ${BASENAME}"
             echo "expected=${EXPECTED}"
             echo "actual=${ACTUAL}"
+            exit 1
+          fi
+          if [[ "$FILE" == *.tar.gz ]]; then
+            tar -xzf "$FILE" -C dist
+          fi
+          if [[ "$FILE" == *.zip ]]; then
+            unzip -o "$FILE" -d dist
+          fi
+          BIN=$(find dist -type f -name 'cafaye*' ! -name '*.tar.gz' ! -name '*.zip' | head -n1)
+          if [[ -z "${BIN}" ]]; then
+            echo "No cafaye binary found in release artifact"
+            find dist -maxdepth 3 -type f -print
             exit 1
           fi
           chmod +x "$BIN"

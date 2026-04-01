@@ -53,9 +53,14 @@ jobs:
 
       - name: Release with Cleo
         run: |
-          cleo release publish --version "${GITHUB_REF_NAME}" --final \
-            --summary "Cafaye CLI release ${GITHUB_REF_NAME}" \
-            --highlights "Agent-first non-interactive CLI workflows"
+          set -euo pipefail
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists; skipping cleo publish"
+          else
+            cleo release publish --version "${GITHUB_REF_NAME}" --final \
+              --summary "Cafaye CLI release ${GITHUB_REF_NAME}" \
+              --highlights "Agent-first non-interactive CLI workflows"
+          fi
 
       - name: Normalize release assets
         run: |
