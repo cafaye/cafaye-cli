@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cafaye/cafaye-cli/internal/cli"
+	"github.com/cafaye/cafaye-cli/internal/skills"
 	"github.com/cafaye/cafaye-cli/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -21,6 +22,7 @@ var (
 	runBrewUpgradeFn      = runBrewUpgrade
 	runInstallerUpgradeFn = runInstallerUpgrade
 	fetchLatestVersionFn  = fetchLatestVersion
+	ensureDefaultSkillFn  = skills.EnsureDefaultInstalled
 )
 
 func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
@@ -61,6 +63,12 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			result["update_available"] = updateAvailable
 			result["up_to_date"] = !updateAvailable
 			if !updateAvailable {
+				skillRes, err := ensureDefaultSkillFn()
+				if err != nil {
+					return fmt.Errorf("sync skill: %w", err)
+				}
+				result["skill_path"] = skillRes.Path
+				result["skill_updated"] = skillRes.Updated
 				result["updated"] = false
 				result["message"] = "already up to date"
 				if jsonOutput {
@@ -84,6 +92,12 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 					}
 					return fmt.Errorf("update failed (brew): %w", err)
 				}
+				skillRes, err := ensureDefaultSkillFn()
+				if err != nil {
+					return fmt.Errorf("sync skill: %w", err)
+				}
+				result["skill_path"] = skillRes.Path
+				result["skill_updated"] = skillRes.Updated
 				result["updated"] = true
 				result["method"] = "brew"
 				if jsonOutput {
@@ -104,6 +118,12 @@ func newUpdateCmd(rt *cli.Runtime) *cobra.Command {
 				}
 				return fmt.Errorf("update failed (install-script): %w", err)
 			}
+			skillRes, err := ensureDefaultSkillFn()
+			if err != nil {
+				return fmt.Errorf("sync skill: %w", err)
+			}
+			result["skill_path"] = skillRes.Path
+			result["skill_updated"] = skillRes.Updated
 			result["updated"] = true
 			result["method"] = "install-script"
 			if jsonOutput {

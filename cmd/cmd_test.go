@@ -14,6 +14,7 @@ import (
 	"github.com/cafaye/cafaye-cli/internal/cli"
 	"github.com/cafaye/cafaye-cli/internal/config"
 	"github.com/cafaye/cafaye-cli/internal/creds"
+	"github.com/cafaye/cafaye-cli/internal/skills"
 	"github.com/cafaye/cafaye-cli/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -433,11 +434,21 @@ func TestUpdateDefaultWhenAlreadyCurrentIsHumanReadable(t *testing.T) {
 	root := NewRootCmdWithRuntime(rt)
 
 	prevFetch := fetchLatestVersionFn
+	prevSkill := ensureDefaultSkillFn
+	called := 0
 	fetchLatestVersionFn = func() (string, error) { return "v" + version.Current, nil }
+	ensureDefaultSkillFn = func() (skills.InstallResult, error) {
+		called++
+		return skills.InstallResult{Path: "/tmp/skills/cafaye/SKILL.md", Updated: false}, nil
+	}
 	defer func() { fetchLatestVersionFn = prevFetch }()
+	defer func() { ensureDefaultSkillFn = prevSkill }()
 
 	if err := exec(t, root, "update"); err != nil {
 		t.Fatal(err)
+	}
+	if called != 1 {
+		t.Fatalf("expected default skill sync once, got %d", called)
 	}
 	if !strings.Contains(out.String(), "Already up to date.") {
 		t.Fatalf("expected already-up-to-date message, got: %s", out.String())
@@ -451,17 +462,27 @@ func TestUpdateDefaultUsesBrewWithHumanOutput(t *testing.T) {
 	prevFetch := fetchLatestVersionFn
 	prevDetect := detectBrewInstallFn
 	prevBrew := runBrewUpgradeFn
+	prevSkill := ensureDefaultSkillFn
+	called := 0
 	fetchLatestVersionFn = func() (string, error) { return "v9.9.9", nil }
 	detectBrewInstallFn = func() bool { return true }
 	runBrewUpgradeFn = func() error { return nil }
+	ensureDefaultSkillFn = func() (skills.InstallResult, error) {
+		called++
+		return skills.InstallResult{Path: "/tmp/skills/cafaye/SKILL.md", Updated: true}, nil
+	}
 	defer func() {
 		fetchLatestVersionFn = prevFetch
 		detectBrewInstallFn = prevDetect
 		runBrewUpgradeFn = prevBrew
+		ensureDefaultSkillFn = prevSkill
 	}()
 
 	if err := exec(t, root, "update"); err != nil {
 		t.Fatal(err)
+	}
+	if called != 1 {
+		t.Fatalf("expected default skill sync once, got %d", called)
 	}
 	if !strings.Contains(out.String(), "Updating via Homebrew...") {
 		t.Fatalf("expected brew update message, got: %s", out.String())
