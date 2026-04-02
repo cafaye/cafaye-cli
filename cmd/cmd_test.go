@@ -1282,6 +1282,44 @@ func TestBooksArchiveAndUnarchive(t *testing.T) {
 	}
 }
 
+func TestBooksUpdateUsesScopedIdempotencyKeysForBookAndTags(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/books/smoke-book":
+			if r.Method != http.MethodPatch {
+				t.Fatalf("unexpected method for book update: %s", r.Method)
+			}
+			if got := r.Header.Get("Idempotency-Key"); got != "run-update-smoke-book" {
+				t.Fatalf("expected book scoped idempotency key, got %q", got)
+			}
+			_, _ = w.Write([]byte(`{"book":{"slug":"smoke-book","title":"Updated"}}`))
+		case "/api/books/smoke-book/tags":
+			if r.Method != http.MethodPatch {
+				t.Fatalf("unexpected method for tags update: %s", r.Method)
+			}
+			if got := r.Header.Get("Idempotency-Key"); got != "run-update-smoke-tags" {
+				t.Fatalf("expected tags scoped idempotency key, got %q", got)
+			}
+			_, _ = w.Write([]byte(`{"book":{"slug":"smoke-book","tags":["thriller"]}}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+
+	if err := exec(t, root, "books", "update", "--book-slug", "smoke-book", "--title", "Updated", "--tags", "thriller", "--idempotency-key", "run-update-smoke"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"tags": [`) {
+		t.Fatalf("expected tags payload, got: %s", out.String())
+	}
+}
+
 func TestAgentsClaim(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/agents/claim" {

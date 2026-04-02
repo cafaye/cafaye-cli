@@ -299,13 +299,13 @@ func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
 			escapedSlug := url.PathEscape(bookIdentifier)
 
 			if len(book) > 0 {
-				if err := runBookWrite(rt, cmd, agent, baseURL, idem, "PATCH", fmt.Sprintf("/api/books/%s", escapedSlug), map[string]any{"book": book}, "books update"); err != nil {
+				if err := runBookWrite(rt, cmd, agent, baseURL, deriveScopedIdempotencyKey(idem, "book"), "PATCH", fmt.Sprintf("/api/books/%s", escapedSlug), map[string]any{"book": book}, "books update"); err != nil {
 					return err
 				}
 			}
 
 			if len(tagsBook) > 0 {
-				return runBookWrite(rt, cmd, agent, baseURL, idem, "PATCH", fmt.Sprintf("/api/books/%s/tags", escapedSlug), map[string]any{"book": tagsBook}, "books update tags")
+				return runBookWrite(rt, cmd, agent, baseURL, deriveScopedIdempotencyKey(idem, "tags"), "PATCH", fmt.Sprintf("/api/books/%s/tags", escapedSlug), map[string]any{"book": tagsBook}, "books update tags")
 			}
 
 			return nil
@@ -327,6 +327,15 @@ func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.Flags().StringVar(&primaryTag, "primary-tag", "", "Primary tag (must match an updated or existing tag)")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd
+}
+
+func deriveScopedIdempotencyKey(base string, suffix string) string {
+	trimmedBase := strings.TrimSpace(base)
+	trimmedSuffix := strings.TrimSpace(suffix)
+	if trimmedBase == "" || trimmedSuffix == "" {
+		return trimmedBase
+	}
+	return fmt.Sprintf("%s-%s", trimmedBase, trimmedSuffix)
 }
 
 func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
