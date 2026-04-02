@@ -15,5 +15,5 @@ release:
 
       Highlights:
       - Bundled, version-matched Cafaye agent skill shipped in the CLI binary
-      - Managed skill install path maintained at ~/Cafaye/books/.agents/skills/cafaye/SKILL.md
+      - Managed skill install path maintained at ~/.agents/skills/cafaye/SKILL.md
       - New command: cafaye skills install --root <workspace-or-bundle-root>

@@ -22,7 +22,7 @@ func newSkillsInstallCmd() *cobra.Command {
 		Use:   "install",
 		Short: "Install/update Cafaye skill into a workspace or bundle root",
 		Example: `  cafaye skills install
-  cafaye skills install --root ~/Cafaye/books
+  cafaye skills install --root ~
   cafaye skills install --root /tmp/source-bundle`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var (
@@ -42,6 +42,6 @@ func newSkillsInstallCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&root, "root", "", "Workspace/source bundle root (defaults to CAFAYE_BOOKS_DIR or ~/Cafaye/books)")
+	cmd.Flags().StringVar(&root, "root", "", "Workspace/source bundle root (defaults to CAFAYE_BOOKS_DIR or ~)")
 	return cmd
 }

@@ -110,7 +110,7 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 		Use:   "create",
 		Short: "Create a new book and scaffold local slug workspace",
 		Example: `  cafaye books create --title "My Book"
-  cafaye books create --title "Draft" --subtitle "Notes" --books-dir ~/Cafaye/books`,
+  cafaye books create --title "Draft" --subtitle "Notes" --books-dir ~`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(title) == "" {
 				return fmt.Errorf("missing --title\n  cafaye books create --title <title> [--subtitle <subtitle>]")
@@ -228,7 +228,7 @@ func newBooksCreateCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.Flags().StringVar(&theme, "theme", "", "Book theme")
 	cmd.Flags().BoolVar(&everyoneAccess, "everyone-access", false, "Whether everyone can access this book")
 	cmd.Flags().BoolVar(&skipTemplates, "skip-templates", false, "Create workspace folder without starter template files")
-	cmd.Flags().StringVar(&booksDir, "books-dir", "", "Workspace books directory (defaults to CAFAYE_BOOKS_DIR or ~/Cafaye/books)")
+	cmd.Flags().StringVar(&booksDir, "books-dir", "", "Workspace books directory (defaults to CAFAYE_BOOKS_DIR or ~)")
 	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
 	return cmd
 }

@@ -11,9 +11,8 @@ import (
 )
 
 const (
-	defaultBooksDirSuffix = "Cafaye/books"
-	skillRelativePath     = ".agents/skills/cafaye/SKILL.md"
-	booksDirEnv           = "CAFAYE_BOOKS_DIR"
+	skillRelativePath = ".agents/skills/cafaye/SKILL.md"
+	booksDirEnv       = "CAFAYE_BOOKS_DIR"
 )
 
 //go:embed assets/cafaye/SKILL.md
@@ -32,7 +31,7 @@ func defaultBooksDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, defaultBooksDirSuffix), nil
+	return home, nil
 }
 
 func DefaultBooksDir() (string, error) {

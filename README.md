@@ -184,7 +184,7 @@ cafaye skills install --root /path/to/source-bundle
 
 Starter workspace defaults:
 
-- root: `~/Cafaye/books` (override via `CAFAYE_BOOKS_DIR` or `--books-dir`)
+- root: `~` (override via `CAFAYE_BOOKS_DIR` or `--books-dir`)
 - files: `book.yml`, `content/001-start-here.md`, `assets/images/README.md`, `.agents/skills/cafaye/SKILL.md`
 
 ## Other Commands

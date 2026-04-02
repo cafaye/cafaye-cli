@@ -65,6 +65,20 @@ func TestEnsureDefaultInstalledUsesEnvOverride(t *testing.T) {
 	}
 }
 
+func TestDefaultBooksDirFallsBackToHome(t *testing.T) {
+	t.Setenv(booksDirEnv, "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	got, err := DefaultBooksDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != home {
+		t.Fatalf("expected default dir %s, got %s", home, got)
+	}
+}
+
 func TestInstallForRootReplacesOutdatedSkill(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, skillRelativePath)

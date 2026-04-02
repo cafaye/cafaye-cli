@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.3.19
+
+### Summary
+
+- Switched default Cafaye skill install root to the user home directory so the bundled skill installs at `~/.agents/skills/cafaye/SKILL.md` by default.
+
+### Highlights
+
+- `cafaye skills install` now defaults to `~` (unless `CAFAYE_BOOKS_DIR` is set), which installs into:
+  - `~/.agents/skills/cafaye/SKILL.md`
+- Updated CLI help text and docs to reflect the new default root behavior.
+- Added test coverage for home-directory default root resolution.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- If you previously relied on the old default under `~/Cafaye/books`, pass `--root ~/Cafaye/books` (or set `CAFAYE_BOOKS_DIR`) explicitly.
+
+### Verification
+
+- `make verify`
+
 ## v0.3.18
 
 ### Summary
