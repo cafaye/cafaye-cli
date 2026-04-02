@@ -1242,6 +1242,46 @@ func TestBooksPublishAndUnpublish(t *testing.T) {
 	}
 }
 
+func TestBooksArchiveAndUnarchive(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/books/smoke-book/archive":
+			if r.Method != http.MethodPost {
+				t.Fatalf("unexpected method for archive: %s", r.Method)
+			}
+			_, _ = w.Write([]byte(`{"book":{"book_ref":"book_smoke","slug":"smoke-book","archived":true}}`))
+		case "/api/books/book_abc123/archive":
+			if r.Method != http.MethodDelete {
+				t.Fatalf("unexpected method for unarchive by ref: %s", r.Method)
+			}
+			_, _ = w.Write([]byte(`{"book":{"book_ref":"book_abc123","slug":"smoke-book","archived":false}}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer s.Close()
+
+	rt, out, _, _ := testRuntime(t)
+	seedAgentSession(t, rt, "p1", s.URL, "tok")
+	root := NewRootCmdWithRuntime(rt)
+
+	if err := exec(t, root, "books", "archive", "--book-slug", "smoke-book"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"archived": true`) {
+		t.Fatalf("expected archive payload, got: %s", out.String())
+	}
+	out.Reset()
+
+	if err := exec(t, root, "books", "unarchive", "--book-ref", "book_abc123"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"archived": false`) {
+		t.Fatalf("expected unarchive payload, got: %s", out.String())
+	}
+}
+
 func TestAgentsClaim(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/agents/claim" {

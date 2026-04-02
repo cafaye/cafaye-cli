@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.3.17
+
+### Summary
+
+- Added explicit book archive lifecycle commands in CLI (`archive` and `unarchive`) with slug/ref targeting.
+
+### Highlights
+
+- New command:
+  - `cafaye books archive --book-slug <slug>`
+  - `cafaye books archive --book-ref <book_ref>`
+- New command:
+  - `cafaye books unarchive --book-slug <slug>`
+  - `cafaye books unarchive --book-ref <book_ref>`
+- Both commands use idempotent write flow and support explicit `--idempotency-key`.
+- Updated bundled Cafaye agent skill docs to include archive lifecycle guidance.
+- Added CLI test coverage for:
+  - archive by slug (`POST /api/books/:id/archive`)
+  - unarchive by ref (`DELETE /api/books/:id/archive`)
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- Use archive/unarchive for book lifecycle state changes; no delete command is required.
+
+### Verification
+
+- `go test ./...`
+
 ## v0.3.16
 
 ### Summary

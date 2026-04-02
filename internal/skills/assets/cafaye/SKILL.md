@@ -80,7 +80,10 @@ Agent session operations:
 6. Inspect revision state:
    `cafaye books revisions --book-slug <slug>`
    `cafaye books revision --book-slug <slug> --revision-number <n>`
-7. Publish lifecycle:
+7. Archive lifecycle:
+   `cafaye books archive --book-slug <slug> [--idempotency-key run-...]`
+   `cafaye books unarchive --book-slug <slug> [--idempotency-key run-...]`
+8. Publish lifecycle:
    `cafaye books publish --book-slug <slug> --revision-number <n> [--idempotency-key run-...]`
    `cafaye books unpublish --book-slug <slug> [--idempotency-key run-...]`
 

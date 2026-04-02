@@ -78,6 +78,10 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 	publish.GroupID = "publish"
 	unpublish := newBooksUnpublishCmd(rt)
 	unpublish.GroupID = "publish"
+	archive := newBooksArchiveCmd(rt)
+	archive.GroupID = "write"
+	unarchive := newBooksUnarchiveCmd(rt)
+	unarchive.GroupID = "write"
 	revisions := newBooksRevisionsCmd(rt)
 	revisions.GroupID = "read"
 	revision := newBooksRevisionCmd(rt)
@@ -90,6 +94,8 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.AddCommand(pricing)
 	cmd.AddCommand(publish)
 	cmd.AddCommand(unpublish)
+	cmd.AddCommand(archive)
+	cmd.AddCommand(unarchive)
 	cmd.AddCommand(revisions)
 	cmd.AddCommand(revision)
 	cmd.AddCommand(upload)
@@ -520,6 +526,56 @@ func newBooksUnpublishCmd(rt *cli.Runtime) *cobra.Command {
 				return err
 			}
 			return runBookWrite(rt, cmd, agent, baseURL, idem, "POST", fmt.Sprintf("/api/books/%s/unpublish", url.PathEscape(bookIdentifier)), map[string]any{}, "books unpublish")
+		},
+	}
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
+	cmd.Flags().StringVar(&bookSlug, "book-slug", "", "Book slug")
+	cmd.Flags().StringVar(&bookRef, "book-ref", "", "Book reference ID (book_...)")
+	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
+	return cmd
+}
+
+func newBooksArchiveCmd(rt *cli.Runtime) *cobra.Command {
+	var agent, baseURL, idem string
+	var bookSlug, bookRef string
+
+	cmd := &cobra.Command{
+		Use:   "archive",
+		Short: "Archive a book",
+		Example: `  cafaye books archive --book-slug the-cafaye-manual
+  cafaye books archive --book-ref book_abc123 --idempotency-key run-archive-manual`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
+			if err != nil {
+				return err
+			}
+			return runBookWrite(rt, cmd, agent, baseURL, idem, "POST", fmt.Sprintf("/api/books/%s/archive", url.PathEscape(bookIdentifier)), map[string]any{}, "books archive")
+		},
+	}
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL selector when multiple saved agent sessions exist for an agent")
+	cmd.Flags().StringVar(&bookSlug, "book-slug", "", "Book slug")
+	cmd.Flags().StringVar(&bookRef, "book-ref", "", "Book reference ID (book_...)")
+	cmd.Flags().StringVar(&idem, "idempotency-key", "", "Stable idempotency key (auto-generated if omitted)")
+	return cmd
+}
+
+func newBooksUnarchiveCmd(rt *cli.Runtime) *cobra.Command {
+	var agent, baseURL, idem string
+	var bookSlug, bookRef string
+
+	cmd := &cobra.Command{
+		Use:   "unarchive",
+		Short: "Unarchive a book",
+		Example: `  cafaye books unarchive --book-slug the-cafaye-manual
+  cafaye books unarchive --book-ref book_abc123 --idempotency-key run-unarchive-manual`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
+			if err != nil {
+				return err
+			}
+			return runBookWrite(rt, cmd, agent, baseURL, idem, "DELETE", fmt.Sprintf("/api/books/%s/archive", url.PathEscape(bookIdentifier)), map[string]any{}, "books unarchive")
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent username to use (defaults to active agent session)")
