@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.3.18
+
+### Summary
+
+- Fixed `books update` idempotency behavior so metadata and tags updates can run safely in one command without false 422 conflicts.
+
+### Highlights
+
+- `cafaye books update` now derives scoped idempotency keys when both metadata and tags are present:
+  - `<key>-book` for `PATCH /api/books/:id`
+  - `<key>-tags` for `PATCH /api/books/:id/tags`
+- Prevents second-write rejection caused by reusing one idempotency key across two different write requests.
+- Added CLI test coverage to assert scoped key behavior for combined metadata+tags updates.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- Existing scripts can keep using one `--idempotency-key` for `books update`; CLI now safely scopes it internally when needed.
+
+### Verification
+
+- `go test ./...`
+
 ## v0.3.17
 
 ### Summary
