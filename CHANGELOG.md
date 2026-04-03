@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.3.21
+
+### Summary
+
+- Improved Cafaye bundled agent skill guidance with clearer markdown rules, current image-publishing behavior, and corrected platform-aligned guidance.
+
+### Highlights
+
+- Expanded bundled `SKILL.md` formatting guidance with additional practical markdown patterns.
+- Added explicit image-publishing guidance for current CLI/source-bundle workflows:
+  - in-book images should use stable absolute `https://` markdown image URLs
+  - book covers should be uploaded via `cafaye books cover --book-slug <slug> --file <image-path>`
+  - clarified that `assets/images/` in bundles are not auto-published as hosted in-book image assets in current source-bundle upload flow
+- Added page-type guidance aligned to current parser behavior:
+  - section pages via front matter `class: Section`
+  - clarified current bundle parser support scope for page/section units
+- Consolidated markdown references to:
+  - https://daringfireball.net/projects/markdown/syntax
+- Updated installed default skill copy under `~/.agents/skills/cafaye/SKILL.md` to match source guidance.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- No command or API behavior changes; documentation-only release.
+
+### Verification
+
+- `go test ./...`
+
 ## v0.3.20
 
 ### Summary

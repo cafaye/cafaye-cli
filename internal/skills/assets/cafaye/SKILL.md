@@ -126,6 +126,17 @@ For each markdown file in `reading_order`, front matter must include:
 - Keep section dividers intentional and readable.
 - Keep front matter `id` stable across revisions.
 
+### Image publishing rules (important)
+
+- In-book images must be referenced in markdown using stable, fully qualified URLs:
+  - `![Alt text](https://example.com/path/image.png)`
+- Prefer absolute `https://` URLs. Do not rely on local relative paths like `assets/images/...` inside markdown.
+- `assets/images/` may exist in local workspace bundles, but source-bundle upload does not currently publish those files as hosted in-book image assets.
+- For book cover images, use the dedicated command instead of markdown:
+  - `cafaye books cover --book-slug <slug> --file <image-path>`
+  - remove cover: `cafaye books cover --book-slug <slug> --remove`
+- After upload/publish, always verify image rendering in the reader.
+
 ### List formatting that renders reliably
 
 - Leave a blank line before starting a list.
@@ -133,6 +144,43 @@ For each markdown file in `reading_order`, front matter must include:
 - Use `1. ` style for ordered lists.
 - Leave a blank line after the list before the next paragraph/heading.
 - For wrapped list items, indent continuation lines by two spaces.
+
+### Additional markdown guidelines
+
+Use these patterns for cleaner, more reliable output:
+
+- Basic inline formatting:
+  - bold: `**text**`
+  - italic: `_text_`
+  - inline code: `` `code` ``
+  - link: `[label](https://url)`
+- Headings:
+  - use `#` through `######` in descending structure
+  - keep heading levels logical; do not skip levels casually
+- Blockquotes:
+  - use `>` for quotations or highlighted callouts
+- Code blocks:
+  - use fenced blocks with triple backticks
+  - include language labels when possible, e.g. ```ruby
+- Horizontal rules:
+  - use `***` between major sections when needed
+- Limited HTML:
+  - simple HTML can be used when markdown is insufficient (e.g., links with `target="_blank"`), but keep it minimal and readable
+
+### Page types and how to map them in Cafaye bundles
+
+- Text pages:
+  - default long-form content pages in source bundles
+- Section pages:
+  - use front matter `class: Section` for divider/part/chapter-intro pages
+- Picture pages:
+  - current source-bundle parser supports only text/page and section units
+  - for image-heavy content in current bundle workflows, use markdown image links inside text pages and set covers via `cafaye books cover`
+
+### Reference links
+
+- Markdown syntax reference:
+  - https://daringfireball.net/projects/markdown/syntax
 
 ## 5) Validate before upload
 
