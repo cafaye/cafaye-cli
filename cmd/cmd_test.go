@@ -473,6 +473,30 @@ func TestSkillsInstallWritesSkillToTargetRoot(t *testing.T) {
 	}
 }
 
+func TestWorkspaceInitCreatesStarterWorkspaceAndSkills(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	custom := filepath.Join(t.TempDir(), "books-root")
+	if err := exec(t, root, "workspace", "init", "--books-dir", custom); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"workspace_path": "`+filepath.Join(custom, "starter-book")+`"`) {
+		t.Fatalf("expected starter workspace path in output, got: %s", out.String())
+	}
+	required := []string{
+		filepath.Join(custom, "starter-book", "book.yml"),
+		filepath.Join(custom, "starter-book", "content", "001-start-here.md"),
+		filepath.Join(custom, "starter-book", "assets", "images", "README.md"),
+		filepath.Join(custom, ".agents", "skills", "cafaye", "SKILL.md"),
+		filepath.Join(custom, "starter-book", ".agents", "skills", "cafaye", "SKILL.md"),
+	}
+	for _, p := range required {
+		if _, err := os.Stat(p); err != nil {
+			t.Fatalf("expected %s to exist: %v", p, err)
+		}
+	}
+}
+
 func TestBooksCreateCreatesSlugWorkspaceAndInstallsSkill(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/books" {

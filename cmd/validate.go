@@ -280,4 +280,3 @@ func extractFrontMatter(body []byte) ([]byte, error) {
 	front := bytes.Join(lines[1:end], []byte("\n"))
 	return front, nil
 }
-

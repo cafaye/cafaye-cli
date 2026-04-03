@@ -71,6 +71,8 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 	updateCmd.GroupID = "utility"
 	skillsCmd := newSkillsCmd()
 	skillsCmd.GroupID = "utility"
+	workspaceCmd := newWorkspaceCmd(rt)
+	workspaceCmd.GroupID = "utility"
 	versionCmd := newVersionCmd()
 	versionCmd.GroupID = "utility"
 
@@ -80,6 +82,7 @@ func NewRootCmdWithRuntime(rt *cli.Runtime) *cobra.Command {
 	root.AddCommand(booksCmd)
 	root.AddCommand(updateCmd)
 	root.AddCommand(skillsCmd)
+	root.AddCommand(workspaceCmd)
 
 	return root
 }
