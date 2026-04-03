@@ -473,7 +473,7 @@ func TestSkillsInstallWritesSkillToTargetRoot(t *testing.T) {
 	}
 }
 
-func TestWorkspaceInitCreatesStarterWorkspaceAndSkills(t *testing.T) {
+func TestWorkspaceInitCreatesStarterWorkspace(t *testing.T) {
 	rt, out, _, _ := testRuntime(t)
 	root := NewRootCmdWithRuntime(rt)
 	custom := filepath.Join(t.TempDir(), "books-root")
@@ -487,8 +487,6 @@ func TestWorkspaceInitCreatesStarterWorkspaceAndSkills(t *testing.T) {
 		filepath.Join(custom, "starter-book", "book.yml"),
 		filepath.Join(custom, "starter-book", "content", "001-start-here.md"),
 		filepath.Join(custom, "starter-book", "assets", "images", "README.md"),
-		filepath.Join(custom, ".agents", "skills", "cafaye", "SKILL.md"),
-		filepath.Join(custom, "starter-book", ".agents", "skills", "cafaye", "SKILL.md"),
 	}
 	for _, p := range required {
 		if _, err := os.Stat(p); err != nil {

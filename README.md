@@ -46,13 +46,14 @@ curl -fsSL https://raw.githubusercontent.com/cafaye/cafaye-cli/master/scripts/in
 cafaye version
 ```
 
-### 3) Initialize workspace scaffolding
+### 3) Workspace is auto-initialized on install/update
 
 ```bash
 cafaye workspace init
 ```
 
-This creates a compatible starter source bundle under `starter-book` and installs skill files.
+Install/update flows run `workspace init` and `skills install` automatically.
+You can re-run workspace setup anytime.
 
 Use a custom root when needed:
 
@@ -91,9 +92,10 @@ cafaye books create --title "My New Book"
 
 This creates a private/unpublished remote draft and a local slug workspace.
 
-### 7) Write locally
+### 7) Gather context, then write locally
 
-Edit `book.yml` and markdown files in your book workspace, then create a full zip bundle.
+Before drafting, align with the human owner on audience, promise, tone, scope, and structure.
+Then write the full book in your local workspace (`book.yml` + markdown in `reading_order`).
 
 ### 8) Validate and upload draft revision
 
@@ -206,12 +208,10 @@ cafaye skills install --root /path/to/source-bundle
 
 Starter workspace defaults:
 
-- root: `~` (override via `CAFAYE_BOOKS_DIR` or `--books-dir`)
+- root: `~/Cafaye/books` for `workspace init` (override via `--books-dir`)
 - starter workspace command: `cafaye workspace init [--books-dir <dir>]`
 - starter files: `book.yml`, `content/001-start-here.md`, `assets/images/README.md`
-- skill paths:
-- default/global: `~/.agents/skills/cafaye/SKILL.md` (or `<custom-root>/.agents/skills/cafaye/SKILL.md`)
-- workspace-local: `<workspace>/.agents/skills/cafaye/SKILL.md`
+- skill path: `~/.agents/skills/cafaye/SKILL.md`
 
 ## Other Commands
 

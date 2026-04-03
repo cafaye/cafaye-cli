@@ -97,4 +97,5 @@ echo "Installed ${BIN_NAME} to ${INSTALL_DIR}/${BIN_NAME}"
 "${INSTALL_DIR}/${BIN_NAME}" --help >/dev/null
 "${INSTALL_DIR}/${BIN_NAME}" version 2>/dev/null || true
 "${INSTALL_DIR}/${BIN_NAME}" workspace init >/dev/null
-echo "Initialized starter workspace and installed version-matched Cafaye skill files"
+"${INSTALL_DIR}/${BIN_NAME}" skills install >/dev/null
+echo "Initialized starter workspace and installed version-matched Cafaye skill"
