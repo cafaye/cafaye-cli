@@ -88,6 +88,8 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 	revision.GroupID = "read"
 	upload := newUploadCmd(rt)
 	upload.GroupID = "upload"
+	validate := newBooksValidateCmd()
+	validate.GroupID = "upload"
 	cmd.AddCommand(create)
 	cmd.AddCommand(update)
 	cmd.AddCommand(cover)
@@ -99,6 +101,7 @@ func newBooksCmd(rt *cli.Runtime) *cobra.Command {
 	cmd.AddCommand(revisions)
 	cmd.AddCommand(revision)
 	cmd.AddCommand(upload)
+	cmd.AddCommand(validate)
 	return cmd
 }
 

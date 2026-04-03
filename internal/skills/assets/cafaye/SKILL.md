@@ -105,6 +105,8 @@ Upload rules:
 - `--idempotency-key` is mandatory.
 - Pass at most one explicit target: either `--book-slug` or `--book-ref`.
 - Prefer explicit target flags when running create-first workflows to avoid accidental second-book creation.
+- Validate local bundles before upload:
+  `cafaye books validate --path <dir|zip>`
 - Use stable descriptive keys for retries (for example `run-upload-<slug>-rev-7`).
 - Use `--dry-run` before critical production uploads when validating command construction.
 - For a fresh attempt after fixing a broken bundle, use a new key.

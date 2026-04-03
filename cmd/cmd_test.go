@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -351,6 +352,93 @@ func TestUploadRejectsBothBookSlugAndBookRef(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "choose exactly one book identifier") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestBooksValidateDirectorySuccess(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "content"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "book.yml"), []byte("schema_version: 1\nbook_uid: demo\ntitle: Demo\nauthor: Agent\nreading_order:\n  - content/001-start-here.md\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	page := "---\nid: start-here\ntitle: Start Here\n---\n# Start Here\n"
+	if err := os.WriteFile(filepath.Join(dir, "content", "001-start-here.md"), []byte(page), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := exec(t, root, "books", "validate", "--path", dir); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"valid": true`) {
+		t.Fatalf("expected valid=true output, got: %s", out.String())
+	}
+}
+
+func TestBooksValidateZipSuccess(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	zipPath := filepath.Join(t.TempDir(), "bundle.zip")
+	f, err := os.Create(zipPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	writeZip := func(name, body string) {
+		w, wErr := zw.Create(name)
+		if wErr != nil {
+			t.Fatal(wErr)
+		}
+		if _, wErr = w.Write([]byte(body)); wErr != nil {
+			t.Fatal(wErr)
+		}
+	}
+	writeZip("book.yml", "schema_version: 1\nbook_uid: zip-demo\ntitle: Zip Demo\nauthor: Agent\nreading_order:\n  - content/001-start-here.md\n")
+	writeZip("content/001-start-here.md", "---\nid: zip-start\ntitle: Start\n---\n# Start\n")
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := exec(t, root, "books", "validate", "--path", zipPath); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"valid": true`) {
+		t.Fatalf("expected valid=true output, got: %s", out.String())
+	}
+	if !strings.Contains(out.String(), `"source": "zip"`) {
+		t.Fatalf("expected source=zip, got: %s", out.String())
+	}
+}
+
+func TestBooksValidateFailsWhenFrontMatterIDMissing(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "content"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "book.yml"), []byte("schema_version: 1\nbook_uid: demo\ntitle: Demo\nauthor: Agent\nreading_order:\n  - content/001-start-here.md\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	page := "---\ntitle: Start Here\n---\n# Start Here\n"
+	if err := os.WriteFile(filepath.Join(dir, "content", "001-start-here.md"), []byte(page), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := exec(t, root, "books", "validate", "--path", dir); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"valid": false`) {
+		t.Fatalf("expected valid=false output, got: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "missing required front matter field: id") {
+		t.Fatalf("expected front matter id error, got: %s", out.String())
 	}
 }
 

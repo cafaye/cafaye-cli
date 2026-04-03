@@ -158,6 +158,10 @@ cafaye books create --title "My New Book"
 # Upload a source bundle
 cafaye books upload --file ./bundle.zip --idempotency-key run-123
 
+# Validate a local bundle before upload (directory or zip)
+cafaye books validate --path ./my-new-book
+cafaye books validate --path ./bundle.zip
+
 # Upload and publish
 cafaye books upload --file ./bundle.zip --publish --idempotency-key run-124
 
