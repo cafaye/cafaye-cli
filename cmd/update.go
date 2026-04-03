@@ -168,11 +168,6 @@ func syncInstalledSkill() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve installed cafaye binary: %w", err)
 	}
-	workspaceCmd := osExec.Command(binPath, "workspace", "init")
-	workspaceOut, err := workspaceCmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("run %q: %w (output: %s)", binPath+" workspace init", err, strings.TrimSpace(string(workspaceOut)))
-	}
 	skillCmd := osExec.Command(binPath, "skills", "install")
 	out, err := skillCmd.CombinedOutput()
 	if err != nil {

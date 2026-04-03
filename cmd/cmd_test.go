@@ -495,6 +495,35 @@ func TestWorkspaceInitCreatesStarterWorkspace(t *testing.T) {
 	}
 }
 
+func TestWorkspaceInitDoesNotOverwriteExistingWorkspace(t *testing.T) {
+	rt, out, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	custom := filepath.Join(t.TempDir(), "books-root")
+	existingWorkspace := filepath.Join(custom, "starter-book")
+	if err := os.MkdirAll(existingWorkspace, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	customBookYML := filepath.Join(existingWorkspace, "book.yml")
+	original := []byte("schema_version: 1\nbook_uid: keep-me\ntitle: Keep Me\nauthor: Tester\nreading_order: []\n")
+	if err := os.WriteFile(customBookYML, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := exec(t, root, "workspace", "init", "--books-dir", custom); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"skipped": true`) {
+		t.Fatalf("expected skipped=true output, got: %s", out.String())
+	}
+	got, err := os.ReadFile(customBookYML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(original) {
+		t.Fatalf("expected existing workspace files to remain unchanged")
+	}
+}
+
 func TestBooksCreateCreatesSlugWorkspaceAndInstallsSkill(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/books" {

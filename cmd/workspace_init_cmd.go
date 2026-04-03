@@ -37,7 +37,24 @@ func newWorkspaceInitCmd(_ *cli.Runtime) *cobra.Command {
 			if err := os.MkdirAll(root, 0o755); err != nil {
 				return err
 			}
-			initRes, err := workspacepkg.EnsureStarterWorkspace(root, name)
+			workspaceName := resolveWorkspaceName(name)
+			workspacePath := filepath.Join(root, workspaceName)
+			if info, statErr := os.Stat(workspacePath); statErr == nil && info.IsDir() {
+				result := map[string]any{
+					"workspace_root":    root,
+					"workspace_path":    workspacePath,
+					"workspace_created": false,
+					"starter_populated": false,
+					"skipped":           true,
+					"notes": []string{
+						"workspace init does not overwrite existing workspace directories",
+						"Existing workspace left untouched",
+					},
+				}
+				return printJSON(cmd.OutOrStdout(), result)
+			}
+
+			initRes, err := workspacepkg.EnsureStarterWorkspace(root, workspaceName)
 			if err != nil {
 				return err
 			}
@@ -78,4 +95,11 @@ func resolveWorkspaceInitRoot(booksDir string) (string, error) {
 		return "", err
 	}
 	return filepath.Join(home, "Cafaye", "books"), nil
+}
+
+func resolveWorkspaceName(name string) string {
+	if strings.TrimSpace(name) == "" {
+		return "starter-book"
+	}
+	return strings.TrimSpace(name)
 }
