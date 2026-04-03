@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.3.20
+
+### Summary
+
+- Added local bundle validation, safer workspace initialization, and a more instructional production guide for agent publishing workflows.
+
+### Highlights
+
+- New command:
+  - `cafaye books validate --path <dir|zip>`
+  - Validates local source bundles before upload (required `book.yml` keys, `reading_order` file presence, and per-file front matter `id` checks).
+- New command:
+  - `cafaye workspace init [--books-dir <dir>] [--name <workspace-name>]`
+  - Defaults workspace root to `~/Cafaye/books`.
+  - Creates starter bundle files for compatible authoring.
+  - Does not overwrite existing workspace directories; returns a clear skip message instead.
+- Installer flow now runs both:
+  - `cafaye workspace init`
+  - `cafaye skills install`
+- Update flow now refreshes CLI + skills only and does not run `workspace init`.
+- Revamped bundled `SKILL.md` into a step-by-step guide:
+  - explicit default base URL (`https://cafaye.com`)
+  - create-book-first lifecycle guidance
+  - pre-writing human collaboration checklist (including target word count)
+  - practical markdown/book-format guidance for best rendering
+  - flag glossary for common operational flags (for example `--log-in`, `--open-claim-url`, `--idempotency-key`).
+- Updated README onboarding to match current CLI behavior and command semantics.
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- Use `cafaye books validate --path <dir|zip>` before upload in automated and manual flows.
+- `workspace init` can be re-run safely; existing workspace directories are not overwritten.
+
+### Verification
+
+- `go test ./...`
+
 ## v0.3.19
 
 ### Summary
