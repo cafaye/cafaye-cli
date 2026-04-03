@@ -46,6 +46,7 @@ func newWorkspaceInitCmd(_ *cli.Runtime) *cobra.Command {
 					"workspace_created": false,
 					"starter_populated": false,
 					"skipped":           true,
+					"message":           "target workspace already exists; no files were changed",
 					"notes": []string{
 						"workspace init does not overwrite existing workspace directories",
 						"Existing workspace left untouched",
@@ -64,6 +65,7 @@ func newWorkspaceInitCmd(_ *cli.Runtime) *cobra.Command {
 				"workspace_path":    initRes.WorkspacePath,
 				"workspace_created": initRes.Created,
 				"starter_populated": initRes.Populated,
+				"message":           "starter workspace initialized successfully",
 				"notes": []string{
 					"Starter workspace includes book.yml, content/001-start-here.md, and assets/images/README.md",
 					"workspace init does not install skills; install/update flows run skill sync separately",
