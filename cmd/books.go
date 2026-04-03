@@ -248,6 +248,9 @@ func newBooksUpdateCmd(rt *cli.Runtime) *cobra.Command {
   cafaye books update --book-slug the-cafaye-manual --language-code en --category-id 2
   cafaye books update --book-slug the-cafaye-manual --tags "cafaye manual,publishing" --primary-tag "cafaye manual"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := ensureSlugAgentSelector(rt, agent, bookSlug); err != nil {
+				return err
+			}
 			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
 			if err != nil {
 				return err
@@ -352,6 +355,9 @@ func newBooksCoverCmd(rt *cli.Runtime) *cobra.Command {
 		Example: `  cafaye books cover --book-slug the-cafaye-manual --file ./cover.webp
   cafaye books cover --book-slug the-cafaye-manual --remove`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := ensureSlugAgentSelector(rt, agent, bookSlug); err != nil {
+				return err
+			}
 			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
 			if err != nil {
 				return err
@@ -408,6 +414,9 @@ func newBooksRevisionsCmd(rt *cli.Runtime) *cobra.Command {
 		Example: `  cafaye books revisions --book-slug the-cafaye-manual
   cafaye books revisions --book-slug the-cafaye-manual --agent noel-agent`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := ensureSlugAgentSelector(rt, agent, bookSlug); err != nil {
+				return err
+			}
 			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
 			if err != nil {
 				return err
@@ -431,6 +440,9 @@ func newBooksRevisionCmd(rt *cli.Runtime) *cobra.Command {
 		Short:   "Show a single revision",
 		Example: `  cafaye books revision --book-slug the-cafaye-manual --revision-number 7`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := ensureSlugAgentSelector(rt, agent, bookSlug); err != nil {
+				return err
+			}
 			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
 			if err != nil {
 				return err
@@ -460,6 +472,9 @@ func newBooksPricingCmd(rt *cli.Runtime) *cobra.Command {
 		Example: `  cafaye books pricing --book-slug the-cafaye-manual --pricing-type free
   cafaye books pricing --book-slug the-cafaye-manual --pricing-type paid --price-cents 1200 --price-currency USD`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := ensureSlugAgentSelector(rt, agent, bookSlug); err != nil {
+				return err
+			}
 			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
 			if err != nil {
 				return err
@@ -504,6 +519,9 @@ func newBooksPublishCmd(rt *cli.Runtime) *cobra.Command {
 		Example: `  cafaye books publish --book-slug the-cafaye-manual --revision-number 7
   cafaye books publish --book-slug the-cafaye-manual --revision-number 7 --idempotency-key run-publish-manual-7`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := ensureSlugAgentSelector(rt, agent, bookSlug); err != nil {
+				return err
+			}
 			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
 			if err != nil {
 				return err
@@ -533,6 +551,9 @@ func newBooksUnpublishCmd(rt *cli.Runtime) *cobra.Command {
 		Example: `  cafaye books unpublish --book-slug the-cafaye-manual
   cafaye books unpublish --book-slug the-cafaye-manual --idempotency-key run-unpublish-manual`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := ensureSlugAgentSelector(rt, agent, bookSlug); err != nil {
+				return err
+			}
 			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
 			if err != nil {
 				return err
@@ -558,6 +579,9 @@ func newBooksArchiveCmd(rt *cli.Runtime) *cobra.Command {
 		Example: `  cafaye books archive --book-slug the-cafaye-manual
   cafaye books archive --book-ref book_abc123 --idempotency-key run-archive-manual`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := ensureSlugAgentSelector(rt, agent, bookSlug); err != nil {
+				return err
+			}
 			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
 			if err != nil {
 				return err
@@ -583,6 +607,9 @@ func newBooksUnarchiveCmd(rt *cli.Runtime) *cobra.Command {
 		Example: `  cafaye books unarchive --book-slug the-cafaye-manual
   cafaye books unarchive --book-ref book_abc123 --idempotency-key run-unarchive-manual`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := ensureSlugAgentSelector(rt, agent, bookSlug); err != nil {
+				return err
+			}
 			bookIdentifier, err := resolveBookIdentifier(bookSlug, bookRef)
 			if err != nil {
 				return err
@@ -611,6 +638,14 @@ func resolveBookIdentifier(bookSlug string, bookRef string) (string, error) {
 		return ref, nil
 	}
 	return slug, nil
+}
+
+func ensureSlugAgentSelector(rt *cli.Runtime, agent string, bookSlug string) error {
+	cfg, err := rt.LoadConfig()
+	if err != nil {
+		return err
+	}
+	return requireAgentForSlugWhenMultipleBaseURLs(cfg, agent, bookSlug)
 }
 
 func runBookRead(rt *cli.Runtime, cmd *cobra.Command, agent string, baseURL string, path string, op string) error {

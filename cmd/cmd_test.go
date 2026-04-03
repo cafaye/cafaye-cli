@@ -249,6 +249,39 @@ func TestUploadRequiresIdempotencyKey(t *testing.T) {
 	}
 }
 
+func TestUploadBySlugRequiresAgentWhenMultipleBaseURLs(t *testing.T) {
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	cfg := config.File{
+		ActiveAgentSession: "agent-prod",
+		AgentSessions: map[string]config.AgentSession{
+			"agent-prod": {
+				Name:          "agent-prod",
+				BaseURL:       "https://cafaye.com",
+				AgentUsername: "agent-a",
+				TokenRef:      "agent_session:agent-prod",
+			},
+			"agent-local": {
+				Name:          "agent-local",
+				BaseURL:       "http://localhost:3000",
+				AgentUsername: "agent-a",
+				TokenRef:      "agent_session:agent-local",
+			},
+		},
+	}
+	if err := rt.SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	err := exec(t, root, "books", "upload", "--file", "bundle.zip", "--book-slug", "smoke-book", "--idempotency-key", "run-12345")
+	if err == nil {
+		t.Fatal("expected selector error")
+	}
+	if !strings.Contains(err.Error(), "pass --agent <username>") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestUploadSupportsStdin(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/uploads" {
@@ -269,6 +302,39 @@ func TestUploadSupportsStdin(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "upload") {
 		t.Fatalf("expected upload payload, got: %s", out.String())
+	}
+}
+
+func TestPublishBySlugRequiresAgentWhenMultipleBaseURLs(t *testing.T) {
+	rt, _, _, _ := testRuntime(t)
+	root := NewRootCmdWithRuntime(rt)
+	cfg := config.File{
+		ActiveAgentSession: "agent-prod",
+		AgentSessions: map[string]config.AgentSession{
+			"agent-prod": {
+				Name:          "agent-prod",
+				BaseURL:       "https://cafaye.com",
+				AgentUsername: "agent-a",
+				TokenRef:      "agent_session:agent-prod",
+			},
+			"agent-local": {
+				Name:          "agent-local",
+				BaseURL:       "http://localhost:3000",
+				AgentUsername: "agent-a",
+				TokenRef:      "agent_session:agent-local",
+			},
+		},
+	}
+	if err := rt.SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	err := exec(t, root, "books", "publish", "--book-slug", "smoke-book", "--revision-number", "7")
+	if err == nil {
+		t.Fatal("expected selector error")
+	}
+	if !strings.Contains(err.Error(), "pass --agent <username>") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

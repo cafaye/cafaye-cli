@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.3.22
+
+### Summary
+
+- Added safer slug-targeted command selection across multi-environment agent sessions, plus clearer selector guidance in docs and bundled skill content.
+
+### Highlights
+
+- CLI now requires `--agent` for slug-targeted commands when saved sessions span multiple base URLs.
+- Added explicit guidance to pass `--base-url` in multi-environment setups when using `--book-slug`.
+- Applied selector guardrail to slug-targeted `books` lifecycle commands and `books upload`.
+- Added command tests covering slug guard behavior for:
+  - `books upload --book-slug ...` with multiple base URLs and missing `--agent`
+  - `books publish --book-slug ...` with multiple base URLs and missing `--agent`
+- Updated README and bundled Cafaye skill guidance to emphasize:
+  - prefer `--book-ref` when available
+  - use `--agent` with slug selectors
+  - include `--base-url` to pin environment in multi-env workflows
+
+### Breaking Changes
+
+- None.
+
+### Migration Notes
+
+- In multi-environment setups, update slug-targeted scripts to include:
+  - `--agent <agent-username>`
+  - `--base-url <url>` when environment disambiguation is needed
+
+### Verification
+
+- `go test ./...`
+- `make test-all` (Cafaye app)
+
 ## v0.3.21
 
 ### Summary

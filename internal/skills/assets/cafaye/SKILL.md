@@ -211,6 +211,10 @@ Rules:
 
 - `--idempotency-key` is mandatory.
 - Use one explicit target selector when targeting.
+- Prefer `--book-ref` when available (strongest identity selector).
+- For `--book-slug`, pass `--agent <agent-username>`.
+- In multi-environment setups, also pass `--base-url <url>` to pin the target environment.
+- CLI requires `--agent` for slug-targeted commands when saved sessions include multiple base URLs (and `--base-url` when needed to disambiguate sessions).
 - Reuse key only when retrying identical write intent.
 - Use a new key after content changes.
 

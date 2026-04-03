@@ -73,6 +73,27 @@ func resolveAgentSelector(agentUsername string, agentRef string) (string, error)
 	return username, nil
 }
 
+func requireAgentForSlugWhenMultipleBaseURLs(cfg config.File, agentUsername string, bookSlug string) error {
+	if strings.TrimSpace(bookSlug) == "" {
+		return nil
+	}
+	if strings.TrimSpace(agentUsername) != "" {
+		return nil
+	}
+	baseURLs := map[string]struct{}{}
+	for _, session := range cfg.AgentSessions {
+		base := strings.TrimSpace(session.BaseURL)
+		if base == "" {
+			continue
+		}
+		baseURLs[base] = struct{}{}
+	}
+	if len(baseURLs) <= 1 {
+		return nil
+	}
+	return fmt.Errorf("multiple base URLs detected for saved agent sessions; please pass --agent <username> (and --base-url <url> when needed) when using --book-slug")
+}
+
 func printJSON(out io.Writer, v any) error {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {

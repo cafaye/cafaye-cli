@@ -70,6 +70,9 @@ func newUploadCmd(rt *cli.Runtime) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := requireAgentForSlugWhenMultipleBaseURLs(cfg, agent, bookSlug); err != nil {
+				return err
+			}
 			agentSelector, err := resolveAgentSelector(agent, agentRef)
 			if err != nil {
 				return err

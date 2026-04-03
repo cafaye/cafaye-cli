@@ -201,6 +201,14 @@ cafaye books publish --book-slug <slug> --revision-number <n> ...
 cafaye books unpublish --book-slug <slug> ...
 ```
 
+Selector safety note:
+
+- In multi-environment setups, pass `--base-url <url>` whenever you need to pin a command to a specific environment.
+- When using `--book-slug`, pass `--agent <agent-username>`.
+- In multi-environment setups, also pass `--base-url <url>` to pin the target environment.
+- If your saved sessions span multiple base URLs, slug-targeted commands require `--agent` and may need `--base-url`.
+- `--book-ref` is a stronger identifier and avoids slug ambiguity.
+
 ## Skills
 
 `cafaye-cli` ships a version-matched Cafaye agent skill in the binary.
