@@ -227,6 +227,10 @@ Leave concise notes with:
 
 ## Placement
 
-When provisioning a workspace, install this file at:
+Default install location:
+
+- `~/.agents/skills/cafaye/SKILL.md`
+
+When using a custom root/workspace, install this file at:
 
 - `.agents/skills/cafaye/SKILL.md`

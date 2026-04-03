@@ -90,7 +90,7 @@ cafaye books upload --file ./bundle.zip --idempotency-key run-my-new-book-rev-00
 Check upload status:
 
 ```bash
-cafaye books upload show --id <upload-id>
+cafaye books upload show --upload-ref <upload-ref>
 ```
 
 ### 8) Publish when explicitly approved
@@ -185,7 +185,8 @@ cafaye skills install --root /path/to/source-bundle
 Starter workspace defaults:
 
 - root: `~` (override via `CAFAYE_BOOKS_DIR` or `--books-dir`)
-- files: `book.yml`, `content/001-start-here.md`, `assets/images/README.md`, `.agents/skills/cafaye/SKILL.md`
+- files: `book.yml`, `content/001-start-here.md`, `assets/images/README.md`
+- skill path: `~/.agents/skills/cafaye/SKILL.md` (or `<custom-root>/.agents/skills/cafaye/SKILL.md`)
 
 ## Other Commands
 
