@@ -126,6 +126,14 @@ For each markdown file in `reading_order`, front matter must include:
 - Keep section dividers intentional and readable.
 - Keep front matter `id` stable across revisions.
 
+### List formatting that renders reliably
+
+- Leave a blank line before starting a list.
+- Use `- ` for unordered lists.
+- Use `1. ` style for ordered lists.
+- Leave a blank line after the list before the next paragraph/heading.
+- For wrapped list items, indent continuation lines by two spaces.
+
 ## 5) Validate before upload
 
 Validate directory:
